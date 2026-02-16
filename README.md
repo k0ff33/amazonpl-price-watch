@@ -2,7 +2,7 @@
 
 A self-hosted SaaS for tracking Amazon.pl prices via Telegram, featuring smart scheduling and an anti-bot resistant scraping engine.
 
-## 🏗 Architecture
+## 🏗 Architecture (Planned)
 
 Monorepo deployed via **Coolify** on a single VPS.
 
@@ -17,15 +17,13 @@ Monorepo deployed via **Coolify** on a single VPS.
 *   **Core**: grammY, Crawlee, Drizzle ORM, pg-boss
 *   **Infra**: Docker, PostgreSQL 16
 
-## ⚡ Getting Started
+## ⚡ Status
 
-1.  **Install**: `pnpm install`
-2.  **Env**: Copy `.env.example` to `.env` (needs Telegram Token & Proxy URL).
-3.  **DB**: `docker compose -f docker-compose.dev.yml up -d`
-4.  **Migrate**: `pnpm db:migrate`
-5.  **Run**: `pnpm dev:bot`, `pnpm dev:amazon`, or `pnpm dev:ceneo`
+🚧 **Design Phase**
 
-## 📄 Docs
+The architecture and implementation plans are finalized. Implementation of the monorepo structure and services is upcoming.
+
+## 📄 Documentation
 
 *   [Architecture](docs/architecture.md)
 *   [Scraper Design](docs/scraper_design.md)
