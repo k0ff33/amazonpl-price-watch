@@ -4,9 +4,9 @@
 
 **Goal:** Build a Telegram-based Amazon.pl price tracker with scraping fallback chain, smart scheduling, and fan-out notifications.
 
-**Architecture:** Monorepo with 3 Node.js/TypeScript services (bot-service, amazon-scraper, ceneo-service) sharing a Drizzle ORM schema, communicating via pg-boss job queues in PostgreSQL. Deployed as 4 Docker containers via Coolify.
+**Architecture:** Monorepo with 3 Node.js/TypeScript services (bot-service, amazon-scraper, ceneo-service) sharing a Drizzle ORM schema, communicating via BullMQ job queues in PostgreSQL. Deployed as 4 Docker containers via Coolify.
 
-**Tech Stack:** TypeScript, Node.js 22+, pnpm workspaces, Drizzle ORM, pg-boss, grammY, Crawlee (PlaywrightCrawler + CheerioCrawler), Impit, PostgreSQL 16, Docker
+**Tech Stack:** TypeScript, Node.js 22+, pnpm workspaces, Drizzle ORM, BullMQ, grammY, Crawlee (PlaywrightCrawler + CheerioCrawler), Impit, PostgreSQL 16, Docker
 
 **Reference docs:**
 - `docs/plans/2026-02-17-architecture-design.md` — approved architecture
@@ -120,7 +120,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@liskobot/` scope.
   },
   "dependencies": {
     "drizzle-orm": "latest",
-    "pg-boss": "latest",
+    "BullMQ": "latest",
     "postgres": "latest"
   },
   "devDependencies": {
@@ -146,7 +146,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@liskobot/` scope.
   "dependencies": {
     "@liskobot/shared": "workspace:*",
     "grammy": "latest",
-    "pg-boss": "latest",
+    "BullMQ": "latest",
     "drizzle-orm": "latest",
     "postgres": "latest"
   },
@@ -177,7 +177,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@liskobot/` scope.
     "playwright": "latest",
     "playwright-extra": "latest",
     "puppeteer-extra-plugin-stealth": "latest",
-    "pg-boss": "latest",
+    "BullMQ": "latest",
     "drizzle-orm": "latest",
     "postgres": "latest"
   },
@@ -208,7 +208,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@liskobot/` scope.
     "@crawlee/impit-client": "latest",
     "impit": "latest",
     "cheerio": "latest",
-    "pg-boss": "latest",
+    "BullMQ": "latest",
     "drizzle-orm": "latest",
     "postgres": "latest"
   },
@@ -403,7 +403,7 @@ git commit -m "feat: add Drizzle schema and migrations for products, watches, pr
 
 ---
 
-### Task 4: Shared types and pg-boss queue definitions
+### Task 4: Shared types and BullMQ queue definitions
 
 **Files:**
 - Create: `packages/shared/src/queues.ts`
@@ -465,14 +465,14 @@ export interface NotifyUserJob {
 }
 ```
 
-**Step 2: Create pg-boss factory**
+**Step 2: Create BullMQ factory**
 
 ```typescript
 // packages/shared/src/boss.ts
-import PgBoss from 'pg-boss';
+import BullMQ from 'BullMQ';
 
-export function createBoss(connectionString: string): PgBoss {
-  return new PgBoss({
+export function createBoss(connectionString: string): BullMQ {
+  return new BullMQ({
     connectionString,
     retryLimit: 3,
     retryDelay: 30, // seconds
@@ -497,7 +497,7 @@ Expected: Compiles with no errors
 
 ```bash
 git add packages/shared/
-git commit -m "feat: add pg-boss queue definitions and shared types"
+git commit -m "feat: add BullMQ queue definitions and shared types"
 ```
 
 ---
@@ -929,7 +929,7 @@ export function createAmazonCrawler(proxyUrl?: string) {
 }
 ```
 
-**Step 3: Create entry point with pg-boss worker**
+**Step 3: Create entry point with BullMQ worker**
 
 ```typescript
 // packages/amazon-scraper/src/index.ts
@@ -967,7 +967,7 @@ async function main() {
 main().catch(console.error);
 ```
 
-**Note:** The actual pg-boss ↔ Crawlee integration needs refinement. The worker receives a job, runs a single-URL crawl, reads the result, then decides what to enqueue next. The implementation engineer should use Crawlee's `RequestQueue` and `Dataset` APIs to handle this cleanly.
+**Note:** The actual BullMQ ↔ Crawlee integration needs refinement. The worker receives a job, runs a single-URL crawl, reads the result, then decides what to enqueue next. The implementation engineer should use Crawlee's `RequestQueue` and `Dataset` APIs to handle this cleanly.
 
 **Step 4: Verify it compiles**
 
@@ -1091,7 +1091,7 @@ export function analyzePriceChange(
 Run: `pnpm --filter @liskobot/amazon-scraper test`
 Expected: All 6 tests PASS
 
-**Step 5: Integrate into pg-boss worker**
+**Step 5: Integrate into BullMQ worker**
 
 Update `packages/amazon-scraper/src/index.ts` to use `analyzePriceChange` and enqueue appropriate jobs:
 - `price-changed` on any price change
@@ -1177,7 +1177,7 @@ export function createCeneoCrawler() {
 - How prices are formatted in offer elements
 - The search URL format for title-based lookups
 
-**Step 2: Create entry point with pg-boss worker**
+**Step 2: Create entry point with BullMQ worker**
 
 ```typescript
 // packages/ceneo-service/src/index.ts
@@ -1361,7 +1361,7 @@ Expected: FAIL
 
 ```typescript
 // packages/bot-service/src/scheduler.ts
-import PgBoss from 'pg-boss';
+import BullMQ from 'BullMQ';
 import { Db, products, QUEUES } from '@liskobot/shared';
 import type { PriceCheckJob } from '@liskobot/shared';
 import { lte, asc } from 'drizzle-orm';
@@ -1392,7 +1392,7 @@ export function calculateNextCheckInterval(input: SchedulerInput): number {
   return 240;
 }
 
-export function registerScheduler(boss: PgBoss, db: Db) {
+export function registerScheduler(boss: BullMQ, db: Db) {
   // Register cron: every minute, dispatch due price checks
   boss.schedule(QUEUES.PRICE_CHECK, '* * * * *');
 
@@ -1445,14 +1445,14 @@ This is the core orchestration logic in bot-service. When `price-changed` arrive
 
 ```typescript
 // packages/bot-service/src/handlers/price-changed.ts
-import PgBoss from 'pg-boss';
+import BullMQ from 'BullMQ';
 import { eq, and } from 'drizzle-orm';
 import { Db, watches, products, QUEUES } from '@liskobot/shared';
 import type { PriceChangedJob, NotifyUserJob } from '@liskobot/shared';
 import { formatPriceAlert, formatAdminAlert } from '../notifications.js';
 import { config } from '../config.js';
 
-export function registerPriceChangedHandler(boss: PgBoss, db: Db) {
+export function registerPriceChangedHandler(boss: BullMQ, db: Db) {
   boss.work<PriceChangedJob>(QUEUES.PRICE_CHANGED, async ([job]) => {
     const { asin, oldPrice, newPrice, unverified, isInStock } = job.data;
 
@@ -1760,11 +1760,11 @@ git commit -m "feat: add /health endpoints for Coolify restart policies"
    - How prices are structured in offer elements
    - The search results page structure for title-based lookups
 
-2. **Crawlee ↔ pg-boss integration** — Tasks 8 and 10 show simplified integration. The actual pattern is: pg-boss worker receives job → constructs Crawlee `Request` → runs single-URL crawl → reads result from `request.userData` → processes and enqueues next job. Test this integration carefully.
+2. **Crawlee ↔ BullMQ integration** — Tasks 8 and 10 show simplified integration. The actual pattern is: BullMQ worker receives job → constructs Crawlee `Request` → runs single-URL crawl → reads result from `request.userData` → processes and enqueues next job. Test this integration carefully.
 
 3. **Playwright stealth setup** — The `playwright-extra` + `puppeteer-extra-plugin-stealth` combo needs to be verified with the Crawlee PlaywrightCrawler. Check Crawlee docs for the recommended way to integrate stealth plugins.
 
-4. **pg-boss cron + schedule** — The scheduler uses `boss.schedule()` for cron and `boss.work()` for handlers. Verify that pg-boss v10+ supports this pattern (API changed between major versions).
+4. **BullMQ cron + schedule** — The scheduler uses `boss.schedule()` for cron and `boss.work()` for handlers. Verify that BullMQ v10+ supports this pattern (API changed between major versions).
 
 5. **Drizzle migration workflow** — After generating migrations, verify they apply cleanly to a fresh Postgres. Run `pnpm db:generate && pnpm db:migrate` on a clean database.
 
@@ -1772,7 +1772,7 @@ git commit -m "feat: add /health endpoints for Coolify restart policies"
 
 Before starting, check Context7 or npm for current stable versions:
 - `crawlee` — check for PlaywrightCrawler + Impit compatibility
-- `pg-boss` — ensure Node 22+ support (docs say 22.12+)
+- `BullMQ` — ensure Node 22+ support (docs say 22.12+)
 - `grammy` — latest stable
 - `drizzle-orm` + `drizzle-kit` — latest stable
 - `impit` / `@crawlee/impit-client` — latest

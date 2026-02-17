@@ -7,8 +7,9 @@ Self-hosted, modular SaaS deployed via **Coolify** on a single Hetzner VPS. Four
 ```mermaid
 graph TD
     User((User)) <--> Telegram[Telegram Bot API]
-    Telegram <--> Bot[bot-service<br/>grammY + pg-boss]
-    Bot <--> PG[(PostgreSQL<br/>+ pg-boss queues)]
+    Telegram <--> Bot[bot-service<br/>grammY + BullMQ]
+    Bot <--> PG[(PostgreSQL)]
+    Bot <--> Redis[(Redis<br/>BullMQ queues)]
 
     Bot -->|price-check job| Bot
     Bot -->|try Creators API| API[Amazon Creators API]
@@ -49,10 +50,11 @@ graph LR
 
 | Container | Stack | RAM | Role |
 |---|---|---|---|
-| bot-service | Node/TS, grammY, pg-boss | ~200MB | Telegram bot, Creators API, scheduler, notifications |
+| bot-service | Node/TS, grammY, BullMQ | ~200MB | Telegram bot, Creators API, scheduler, notifications |
+| redis | Redis 7 | ~64MB | BullMQ job queues |
 | amazon-scraper | Crawlee PlaywrightCrawler + stealth | ~1.5GB | Scrape Amazon.pl product pages |
 | ceneo-service | Crawlee CheerioCrawler + Impit | ~100MB | Verify Amazon prices via Ceneo.pl |
-| postgres | PostgreSQL 16 | ~256MB | DB + pg-boss job queues |
+| postgres | PostgreSQL 16 | ~256MB | Persistent data |
 
 ## 3. Data Source Fallback Chain
 
@@ -79,7 +81,7 @@ Priority order:
 
 ## 4. Smart Scheduler
 
-pg-boss cron fires every minute. Bot-service queries due products and dispatches jobs.
+BullMQ repeatable job fires every minute. Bot-service queries due products and dispatches jobs.
 
 ### Priority Formula
 ```
@@ -95,11 +97,11 @@ priority = log10(subscriber_count + 1) * volatility_factor
 | `volatility_score > 0.8` | 30min | Frequently changing |
 | Default | 4h | Baseline |
 
-## 5. Job Flow (pg-boss Queues)
+## 5. Job Flow (BullMQ Queues)
 
 ```mermaid
 sequenceDiagram
-    participant Cron as pg-boss Cron
+    participant Cron as BullMQ Repeatable
     participant Bot as bot-service
     participant API as Creators API
     participant AS as amazon-scraper
@@ -138,7 +140,7 @@ sequenceDiagram
 
 | Queue | Producer | Consumer |
 |---|---|---|
-| `price-check` | pg-boss cron | bot-service |
+| `price-check` | BullMQ repeatable | bot-service |
 | `amazon-scrape` | bot-service | amazon-scraper |
 | `price-changed` | amazon-scraper | bot-service |
 | `ceneo-verify` | amazon-scraper / bot-service | ceneo-service |
@@ -188,7 +190,7 @@ price_history
 | Amazon scraper | Crawlee PlaywrightCrawler + stealth |
 | Ceneo scraper | Crawlee CheerioCrawler + Impit |
 | Amazon API | Creators API SDK (OAuth 2.0) |
-| Job queue | pg-boss (PostgreSQL-backed) |
+| Job queue | BullMQ (Redis-backed) |
 | Database | PostgreSQL 16 |
 | ORM | Drizzle ORM or Kysely |
 | Crawler scaffolding | apify-cli (local project setup) |

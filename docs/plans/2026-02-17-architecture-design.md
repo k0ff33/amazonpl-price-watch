@@ -9,25 +9,23 @@ A commission-only SaaS tracking Amazon.pl prices via Telegram. Users paste Amazo
 
 ### Container Layout
 
-Four Coolify-managed Docker containers on a single Hetzner 4GB VPS (~$7/mo):
+Five Coolify-managed Docker containers on a single Hetzner 4GB VPS (~$7/mo):
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Hetzner VPS (4GB RAM) - managed by Coolify         │
 │                                                      │
-│  ┌──────────────┐    ┌─────────────────────────┐    │
-│  │  bot-service  │<-->│  PostgreSQL              │    │
-│  │  (Node/TS)    │    │  DB + pg-boss queues     │    │
-│  │  ~200MB       │    │  + LISTEN/NOTIFY         │    │
-│  └──────────────┘    │  ~256MB                  │    │
-│                       └──▲──────────▲───────────┘    │
-│                          │          │                │
-│  ┌───────────────────────┴──┐  ┌───┴──────────────┐ │
-│  │  amazon-scraper           │  │  ceneo-service    │ │
-│  │  Crawlee+Playwright       │  │  Crawlee+Cheerio  │ │
-│  │  +stealth+proxies         │  │  +Impit (TLS)     │ │
-│  │  ~1.5GB                   │  │  ~100MB           │ │
-│  └──────────────────────────┘  └──────────────────┘ │
+│  ┌──────────────┐    ┌──────────────┐  ┌──────────┐ │
+│  │  bot-service  │<-->│  PostgreSQL  │  │  Redis 7 │ │
+│  │  (Node/TS)    │    │  ~256MB      │  │  BullMQ  │ │
+│  │  ~200MB       │    └──────────────┘  │  ~64MB   │ │
+│  └──────────────┘                       └──▲───▲───┘ │
+│                                            │   │     │
+│  ┌─────────────────────────────┐  ┌───────┴───┴──┐  │
+│  │  amazon-scraper              │  │ ceneo-service │  │
+│  │  Crawlee+Playwright          │  │ Crawlee+Impit │  │
+│  │  +stealth+proxies  ~1.5GB    │  │ ~100MB        │  │
+│  └─────────────────────────────┘  └──────────────┘  │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -40,11 +38,12 @@ Four Coolify-managed Docker containers on a single Hetzner 4GB VPS (~$7/mo):
 | **bot-service** | Telegram bot (grammY), Creators API calls, smart scheduler registration, notification fan-out, price-change orchestration |
 | **amazon-scraper** | Playwright-based scraping of Amazon.pl product pages. Consumes `amazon-scrape` jobs, produces `price-changed` jobs |
 | **ceneo-service** | Lightweight HTTP verification of Amazon prices via Ceneo.pl. Consumes `ceneo-verify` jobs, produces `ceneo-result` jobs |
-| **PostgreSQL** | All persistent data, pg-boss job queues, LISTEN/NOTIFY |
+| **PostgreSQL** | All persistent data (products, watches, price history) |
+| **Redis** | BullMQ job queues |
 
 ### Key Architectural Decisions
 
-- **No Redis.** pg-boss uses PostgreSQL as the job queue backend (SKIP LOCKED). One fewer container.
+- **BullMQ + Redis.** Battle-tested job queue with repeatable jobs, retries, and rate limiting. Redis adds one container but provides superior queue performance.
 - **No PocketBase.** PostgreSQL handles concurrent writes, job queuing, and notifications natively. PocketBase's SQLite would bottleneck under concurrent access.
 - **Separate scraper services.** RAM isolation: if Chromium OOMs, it doesn't take down the bot. Independent deployment: scraper selectors change frequently.
 - **Crawlee framework for both scrapers.** Consistent proxy rotation, session management, retries, and request queuing. Different transports: PlaywrightCrawler (Amazon) vs CheerioCrawler+Impit (Ceneo).
@@ -113,7 +112,7 @@ When an ASIN is first tracked, the ceneo-service searches Ceneo by product title
 
 ## 4. Smart Scheduler
 
-pg-boss cron schedule fires every minute. Bot-service queries for due products and dispatches `price-check` jobs.
+BullMQ repeatable job fires every minute. Bot-service queries for due products and dispatches `price-check` jobs.
 
 ### Priority Formula
 
@@ -130,12 +129,12 @@ priority = log10(subscriber_count + 1) * volatility_factor
 | `volatility_score > 0.8` | 30min | Frequently changing prices |
 | Default | 4h | Baseline for new/low-interest items |
 
-## 5. Job Flow (pg-boss Queues)
+## 5. Job Flow (BullMQ Queues)
 
 ### Normal price check
 
 ```
-pg-boss cron (every min)
+BullMQ cron (every min)
   --> bot-service: price-check
         --> try Creators API
         --> on fail: enqueue amazon-scrape
@@ -170,7 +169,7 @@ amazon-scraper gets CAPTCHA/403
 
 | Queue | Producer | Consumer |
 |---|---|---|
-| `price-check` | pg-boss cron | bot-service |
+| `price-check` | BullMQ repeatable | bot-service |
 | `amazon-scrape` | bot-service | amazon-scraper |
 | `price-changed` | amazon-scraper | bot-service |
 | `ceneo-verify` | amazon-scraper / bot-service | ceneo-service |
@@ -203,7 +202,7 @@ grammY (TypeScript-native, modern API).
 
 ### Rate Limiting
 
-Fan-out via pg-boss `notify-user` jobs, batched 50 at a time. Telegram allows ~30 messages/sec to different chats.
+Fan-out via BullMQ `notify-user` jobs, batched 50 at a time. Telegram allows ~30 messages/sec to different chats.
 
 ### Admin Alerts
 
@@ -214,7 +213,7 @@ Sent to admin's personal Telegram chat:
 
 ## 7. Error Handling & Monitoring
 
-- **pg-boss retries:** 3 attempts with exponential backoff per job.
+- **BullMQ retries:** 3 attempts with exponential backoff per job.
 - **Dead letter queue:** After 3 failures, job moves to DLQ + admin alert.
 - **Double-scrape verification:** Price drops >30% trigger a second scrape with fresh IP/context before writing to DB.
 - **Success rate tracking:** amazon-scraper tracks hourly success rate. Alert if <85%.
@@ -230,7 +229,7 @@ Sent to admin's personal Telegram chat:
 | Amazon scraper | Crawlee PlaywrightCrawler + stealth plugin |
 | Ceneo scraper | Crawlee CheerioCrawler + Impit (browser TLS) |
 | Amazon API | Creators API SDK (Node.js, OAuth 2.0) |
-| Job queue | pg-boss (PostgreSQL-backed) |
+| Job queue | BullMQ (Redis-backed) |
 | Database | PostgreSQL 16 |
 | ORM | Drizzle ORM or Kysely |
 | Crawler scaffolding | apify-cli (local project setup) |
@@ -245,6 +244,7 @@ bot-service:      mem_limit: 512m,  restart: always
 amazon-scraper:   mem_limit: 2g,    restart: always
 ceneo-service:    mem_limit: 256m,  restart: always
 postgres:         mem_limit: 512m,  restart: always, volume: persistent
+redis:            mem_limit: 128m,  restart: always, volume: persistent
 ```
 
 ## 10. Estimated Monthly Cost

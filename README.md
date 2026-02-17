@@ -9,13 +9,14 @@ Monorepo deployed via **Coolify** on a single VPS.
 *   **`bot-service`**: Telegram bot (grammY), job orchestration, and notifications.
 *   **`amazon-scraper`**: Playwright-based scraper with residential proxies and stealth plugins.
 *   **`ceneo-service`**: Auxiliary HTTP scraper for price verification via Ceneo.pl.
-*   **`postgres`**: Data persistence and **pg-boss** job queues.
+*   **`postgres`**: Data persistence.
+*   **`redis`**: BullMQ job queues.
 
 ## 🛠 Tech Stack
 
 *   **Runtime**: Node.js 22+, TypeScript
-*   **Core**: grammY, Crawlee, Drizzle ORM, pg-boss
-*   **Infra**: Docker, PostgreSQL 16
+*   **Core**: grammY, Crawlee, Drizzle ORM, BullMQ
+*   **Infra**: Docker, PostgreSQL 16, Redis 7
 
 ## ⚡ Status
 

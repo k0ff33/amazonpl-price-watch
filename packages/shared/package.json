@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.1",
-    "pg-boss": "^12.12.0",
+    "bullmq": "^5.51.0",
     "postgres": "^3.4.8"
   },
   "devDependencies": {

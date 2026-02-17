@@ -43,14 +43,15 @@ Monorepo (pnpm workspaces) with 4 Docker containers:
 - **bot-service** — Telegram bot (grammY), smart scheduler, notification fan-out, Creators API calls. The orchestrator.
 - **amazon-scraper** — Crawlee `PlaywrightCrawler` + stealth + residential proxies. Consumes `amazon-scrape` jobs.
 - **ceneo-service** — Crawlee `CheerioCrawler` + Impit (browser TLS fingerprint). HTTP only, no Chromium. Consumes `ceneo-verify` jobs.
-- **PostgreSQL** — All data + pg-boss job queues (no Redis).
+- **PostgreSQL** — All persistent data (products, watches, price history).
+- **Redis** — BullMQ job queues.
 
-Services communicate exclusively via pg-boss queues in Postgres. No direct HTTP calls between services.
+Services communicate exclusively via BullMQ queues in Redis. No direct HTTP calls between services.
 
 ### Data flow
 
 ```
-pg-boss cron → bot-service tries Creators API → on fail: amazon-scrape job →
+BullMQ repeatable job → bot-service tries Creators API → on fail: amazon-scrape job →
 amazon-scraper writes price → price-changed job → bot-service fans out notifications
 ```
 
@@ -60,7 +61,7 @@ On anomalous drops (>30%) or Amazon blocks: `ceneo-verify` job dispatched, admin
 
 | Queue | Producer | Consumer |
 |---|---|---|
-| `price-check` | pg-boss cron | bot-service |
+| `price-check` | BullMQ repeatable | bot-service |
 | `amazon-scrape` | bot-service | amazon-scraper |
 | `price-changed` | amazon-scraper | bot-service |
 | `ceneo-verify` | amazon-scraper | ceneo-service |
@@ -80,7 +81,7 @@ On anomalous drops (>30%) or Amazon blocks: `ceneo-verify` job dispatched, admin
 
 - Use `pnpm` exclusively
 - Always use Context7 (MCP tool) to look up latest library docs before implementation
-- Shared code lives in `@amazonpl/shared` (DB schema, queue names, types, pg-boss factory)
+- Shared code lives in `@liskobot/shared` (DB schema, queue names, types, Redis connection helper)
 - Queue names and job payload types are defined in `packages/shared/src/queues.ts` and `packages/shared/src/types.ts`
 
 ## Key Docs

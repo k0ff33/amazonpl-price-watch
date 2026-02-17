@@ -14,7 +14,7 @@
 
 ```mermaid
 flowchart TD
-    Job[amazon-scrape job from pg-boss] --> Launch[Launch Playwright<br/>headless + stealth]
+    Job[amazon-scrape job from BullMQ] --> Launch[Launch Playwright<br/>headless + stealth]
     Launch --> Navigate["Navigate to amazon.pl/dp/{ASIN}"]
     Navigate --> Check{CAPTCHA or 403?}
     Check -->|Yes| Blocked[Mark job failed<br/>Enqueue ceneo-verify<br/>Alert admin]
@@ -59,7 +59,7 @@ flowchart TD
 - **Crawlee retries:** 3 attempts with backoff before marking job as failed
 
 ### Failure Handling
-- pg-boss handles retry logic: 3 attempts with exponential backoff
+- BullMQ handles retry logic: 3 attempts with exponential backoff
 - After 3 failures: job moves to dead letter queue + admin Telegram alert
 - Hourly success rate tracked. Alert if <85%
 
@@ -75,7 +75,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Job[ceneo-verify job from pg-boss] --> HasMapping{ceneo_id cached?}
+    Job[ceneo-verify job from BullMQ] --> HasMapping{ceneo_id cached?}
     HasMapping -->|No| Search["Search Ceneo by product title<br/>GET ceneo.pl/szukaj-{title}"]
     Search --> Match[Match best result<br/>Cache ceneo_id in products table]
     HasMapping -->|Yes| Fetch["GET ceneo.pl/{ceneo_id}"]
