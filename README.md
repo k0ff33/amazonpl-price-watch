@@ -14,7 +14,7 @@ Monorepo (pnpm workspaces) deployed via **Coolify** on a single VPS. Five Docker
 
 ## Tech Stack
 
-*   **Runtime**: Node.js 22+, TypeScript
+*   **Runtime**: Node.js 24 LTS, TypeScript
 *   **Core**: grammY, Crawlee, Drizzle ORM, BullMQ
 *   **Infra**: Docker, PostgreSQL 16, Redis 7
 
@@ -29,7 +29,7 @@ Monorepo (pnpm workspaces) deployed via **Coolify** on a single VPS. Five Docker
 
 ### Prerequisites
 
-- Node.js 22+
+- Node.js 24 LTS
 - pnpm
 - Docker & Docker Compose
 - A Telegram bot token (from [@BotFather](https://t.me/BotFather))
@@ -97,9 +97,12 @@ Set these env vars before running production compose:
 - `PROXY_URL` (optional)
 
 On first deployment, run DB migrations before starting long-running services.
+The repository ships with `.dockerignore` to exclude local `node_modules` and `dist` artifacts from build context for reproducible image builds.
 
 ```bash
 docker compose up -d --build
+# Optional: verify all service images build cleanly
+docker compose build
 ```
 
 ## Documentation
