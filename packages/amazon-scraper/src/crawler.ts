@@ -1,6 +1,15 @@
 import { PlaywrightCrawler, ProxyConfiguration, createPlaywrightRouter } from 'crawlee';
 
+export interface ScrapeResult {
+  price: string | null;
+  isInStock: boolean;
+  title: string | null;
+  blocked?: boolean;
+}
+
 export function createAmazonCrawler(proxyUrl?: string) {
+  /** Map from ASIN to scrape result, populated by handler, consumed by worker */
+  const results = new Map<string, ScrapeResult>();
   const proxyConfiguration = proxyUrl
     ? new ProxyConfiguration({ proxyUrls: [proxyUrl] })
     : undefined;
@@ -23,10 +32,13 @@ export function createAmazonCrawler(proxyUrl?: string) {
 
     log.info(`Scraping ${request.url}`);
 
+    const asin = request.userData.asin as string;
+
     // Check for CAPTCHA / block
     const blocked = await page.$('form[action="/errors/validateCaptcha"]');
     if (blocked) {
       request.userData.blocked = true;
+      results.set(asin, { price: null, isInStock: false, title: null, blocked: true });
       log.warning(`Blocked on ${request.url}`);
       return;
     }
@@ -57,7 +69,9 @@ export function createAmazonCrawler(proxyUrl?: string) {
       .$eval('#productTitle', (el) => el.textContent?.trim())
       .catch(() => null);
 
-    request.userData.result = { price, isInStock, title };
+    const scrapeResult: ScrapeResult = { price, isInStock, title };
+    request.userData.result = scrapeResult;
+    results.set(asin, scrapeResult);
   });
 
   const crawler = new PlaywrightCrawler({
@@ -76,5 +90,5 @@ export function createAmazonCrawler(proxyUrl?: string) {
     },
   });
 
-  return { crawler, router };
+  return { crawler, router, results };
 }
