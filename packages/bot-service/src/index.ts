@@ -4,7 +4,7 @@ import { config } from './config.js';
 
 async function main() {
   const db = createDb(config.databaseUrl);
-  const bot = createBot(config.telegramBotToken);
+  const bot = createBot(config.telegramBotToken, db);
   await bot.start();
   console.log('Bot service started');
 }
