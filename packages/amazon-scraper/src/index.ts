@@ -6,6 +6,7 @@ import type { AmazonScrapeJob, PriceChangedJob, CeneoVerifyJob } from '@liskobot
 import { config } from './config.js';
 import { createAmazonCrawler } from './crawler.js';
 import { analyzePriceChange } from './price-processor.js';
+import { scrapeWithFallback } from './scrape-with-fallback.js';
 
 async function main() {
   const db = createDb(config.databaseUrl);
@@ -14,7 +15,8 @@ async function main() {
   const priceChangedQueue = new Queue<PriceChangedJob>(QUEUES.PRICE_CHANGED, { connection });
   const ceneoVerifyQueue = new Queue<CeneoVerifyJob>(QUEUES.CENEO_VERIFY, { connection });
 
-  const { crawler, results } = createAmazonCrawler(config.proxyUrl);
+  const directScraper = createAmazonCrawler();
+  const proxyScraper = config.proxyUrl ? createAmazonCrawler(config.proxyUrl) : undefined;
 
   const worker = new Worker<AmazonScrapeJob>(
     QUEUES.AMAZON_SCRAPE,
@@ -22,15 +24,15 @@ async function main() {
       const { asin } = job.data;
       const url = `https://www.amazon.pl/dp/${asin}`;
 
-      // Run crawl for single URL
-      await crawler.run([{ url, userData: { asin } }]);
+      const { result: scrapeResult, usedProxyFallback } = await scrapeWithFallback({
+        asin,
+        url,
+        direct: directScraper,
+        proxy: proxyScraper,
+      });
 
-      // Retrieve result from the shared results map
-      const scrapeResult = results.get(asin);
-      results.delete(asin); // clean up
-
-      if (!scrapeResult) {
-        throw new Error(`No scrape result for ASIN ${asin}`);
+      if (usedProxyFallback) {
+        console.warn(`ASIN ${asin}: direct scrape blocked, proxy fallback used`);
       }
 
       // If blocked by CAPTCHA, enqueue ceneo-verify for cross-check
