@@ -1,6 +1,6 @@
-# amazonpl-price-watch
+# Liskobot 🦊
 
-A self-hosted SaaS for tracking Amazon.pl prices via Telegram, featuring smart scheduling and an anti-bot resistant scraping engine.
+**Liskobot** (liskobot.pl) is a "Lisek chytrusek" (sly fox) price and stock tracker for Amazon.pl. It helps users find the best deals and historical lows, notifying them via Telegram when the hunt is successful.
 
 ## 🏗 Architecture (Planned)
 

@@ -1,5 +1,5 @@
 {
-  "name": "@amazonpl/ceneo-service",
+  "name": "@liskobot/ceneo-service",
   "version": "0.0.1",
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@amazonpl/shared": "workspace:*",
+    "@liskobot/shared": "workspace:*",
     "crawlee": "^3.16.0",
     "@crawlee/impit-client": "^3.16.0",
     "impit": "^0.9.2",

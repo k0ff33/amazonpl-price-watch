@@ -1,4 +1,4 @@
-# Requirements: amazonpl-price-watch
+# Requirements: Liskobot (liskobot.pl)
 
 ## 1. Objective
 A commission-only SaaS tracking Amazon.pl prices and stock. Users are notified via Telegram when their target price is met or an item hits a historical low. Revenue is generated through Amazon Associates affiliate links.

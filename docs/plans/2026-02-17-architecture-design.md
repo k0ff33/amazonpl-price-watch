@@ -1,4 +1,4 @@
-# Architecture Design: amazonpl-price-watch
+# Architecture Design: Liskobot (liskobot.pl)
 
 **Date:** 2026-02-17
 **Status:** Approved

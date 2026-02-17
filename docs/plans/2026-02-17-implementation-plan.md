@@ -1,4 +1,4 @@
-# amazonpl-price-watch Implementation Plan
+# Liskobot (liskobot.pl) Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -40,14 +40,14 @@
 ```json
 // package.json
 {
-  "name": "amazonpl-price-watch",
+  "name": "liskobot",
   "private": true,
   "scripts": {
-    "db:generate": "pnpm --filter @amazonpl/shared drizzle-kit generate",
-    "db:migrate": "pnpm --filter @amazonpl/shared drizzle-kit migrate",
-    "dev:bot": "pnpm --filter @amazonpl/bot-service dev",
-    "dev:amazon": "pnpm --filter @amazonpl/amazon-scraper dev",
-    "dev:ceneo": "pnpm --filter @amazonpl/ceneo-service dev"
+    "db:generate": "pnpm --filter @liskobot/shared drizzle-kit generate",
+    "db:migrate": "pnpm --filter @liskobot/shared drizzle-kit migrate",
+    "dev:bot": "pnpm --filter @liskobot/bot-service dev",
+    "dev:amazon": "pnpm --filter @liskobot/amazon-scraper dev",
+    "dev:ceneo": "pnpm --filter @liskobot/ceneo-service dev"
   }
 }
 ```
@@ -104,12 +104,12 @@ PROXY_URL=http://user:pass@proxy:port
 
 **Step 4: Create package scaffolds**
 
-Each package gets a `package.json` and `tsconfig.json`. Use `@amazonpl/` scope.
+Each package gets a `package.json` and `tsconfig.json`. Use `@liskobot/` scope.
 
 ```json
 // packages/shared/package.json
 {
-  "name": "@amazonpl/shared",
+  "name": "@liskobot/shared",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.js",
@@ -134,7 +134,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@amazonpl/` scope.
 ```json
 // packages/bot-service/package.json
 {
-  "name": "@amazonpl/bot-service",
+  "name": "@liskobot/bot-service",
   "version": "0.0.1",
   "type": "module",
   "scripts": {
@@ -144,7 +144,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@amazonpl/` scope.
     "test": "vitest"
   },
   "dependencies": {
-    "@amazonpl/shared": "workspace:*",
+    "@liskobot/shared": "workspace:*",
     "grammy": "latest",
     "pg-boss": "latest",
     "drizzle-orm": "latest",
@@ -162,7 +162,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@amazonpl/` scope.
 ```json
 // packages/amazon-scraper/package.json
 {
-  "name": "@amazonpl/amazon-scraper",
+  "name": "@liskobot/amazon-scraper",
   "version": "0.0.1",
   "type": "module",
   "scripts": {
@@ -172,7 +172,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@amazonpl/` scope.
     "test": "vitest"
   },
   "dependencies": {
-    "@amazonpl/shared": "workspace:*",
+    "@liskobot/shared": "workspace:*",
     "crawlee": "latest",
     "playwright": "latest",
     "playwright-extra": "latest",
@@ -193,7 +193,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@amazonpl/` scope.
 ```json
 // packages/ceneo-service/package.json
 {
-  "name": "@amazonpl/ceneo-service",
+  "name": "@liskobot/ceneo-service",
   "version": "0.0.1",
   "type": "module",
   "scripts": {
@@ -203,7 +203,7 @@ Each package gets a `package.json` and `tsconfig.json`. Use `@amazonpl/` scope.
     "test": "vitest"
   },
   "dependencies": {
-    "@amazonpl/shared": "workspace:*",
+    "@liskobot/shared": "workspace:*",
     "crawlee": "latest",
     "@crawlee/impit-client": "latest",
     "impit": "latest",
@@ -490,7 +490,7 @@ Add `export * from './boss.js';` to `packages/shared/src/index.ts`.
 
 **Step 4: Build shared package to verify**
 
-Run: `pnpm --filter @amazonpl/shared build`
+Run: `pnpm --filter @liskobot/shared build`
 Expected: Compiles with no errors
 
 **Step 5: Commit**
@@ -556,7 +556,7 @@ export function createBot(token: string) {
 ```typescript
 // packages/bot-service/src/index.ts
 import { createBot } from './bot.js';
-import { createDb, createBoss } from '@amazonpl/shared';
+import { createDb, createBoss } from '@liskobot/shared';
 import { config } from './config.js';
 
 async function main() {
@@ -627,7 +627,7 @@ describe('extractAsin', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @amazonpl/bot-service test`
+Run: `pnpm --filter @liskobot/bot-service test`
 Expected: FAIL — cannot find module '../asin.js'
 
 **Step 3: Implement ASIN extraction**
@@ -644,7 +644,7 @@ export function extractAsin(url: string): string | null {
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @amazonpl/bot-service test`
+Run: `pnpm --filter @liskobot/bot-service test`
 Expected: All 5 tests PASS
 
 **Step 5: Implement track handler**
@@ -653,7 +653,7 @@ Expected: All 5 tests PASS
 // packages/bot-service/src/handlers/track.ts
 import { Context } from 'grammy';
 import { eq } from 'drizzle-orm';
-import { Db, products, watches } from '@amazonpl/shared';
+import { Db, products, watches } from '@liskobot/shared';
 import { extractAsin } from '../asin.js';
 
 export function createTrackHandler(db: Db) {
@@ -739,7 +739,7 @@ git commit -m "feat: add ASIN extraction and product tracking via URL paste"
 // packages/bot-service/src/handlers/list.ts
 import { Context } from 'grammy';
 import { eq } from 'drizzle-orm';
-import { Db, watches, products } from '@amazonpl/shared';
+import { Db, watches, products } from '@liskobot/shared';
 
 export function createListHandler(db: Db) {
   return async (ctx: Context) => {
@@ -783,7 +783,7 @@ Each follows the pattern: parse ASIN from command args, find watch, update DB, r
 // packages/bot-service/src/handlers/pause.ts
 import { Context } from 'grammy';
 import { eq, and } from 'drizzle-orm';
-import { Db, watches } from '@amazonpl/shared';
+import { Db, watches } from '@liskobot/shared';
 
 export function createPauseHandler(db: Db) {
   return async (ctx: Context) => {
@@ -933,12 +933,12 @@ export function createAmazonCrawler(proxyUrl?: string) {
 
 ```typescript
 // packages/amazon-scraper/src/index.ts
-import { createDb, createBoss, QUEUES } from '@amazonpl/shared';
-import type { AmazonScrapeJob, PriceChangedJob, CeneoVerifyJob } from '@amazonpl/shared';
+import { createDb, createBoss, QUEUES } from '@liskobot/shared';
+import type { AmazonScrapeJob, PriceChangedJob, CeneoVerifyJob } from '@liskobot/shared';
 import { config } from './config.js';
 import { createAmazonCrawler } from './crawler.js';
 import { eq } from 'drizzle-orm';
-import { products, priceHistory } from '@amazonpl/shared';
+import { products, priceHistory } from '@liskobot/shared';
 
 async function main() {
   const db = createDb(config.databaseUrl);
@@ -971,7 +971,7 @@ main().catch(console.error);
 
 **Step 4: Verify it compiles**
 
-Run: `pnpm --filter @amazonpl/amazon-scraper build`
+Run: `pnpm --filter @liskobot/amazon-scraper build`
 Expected: Compiles with no errors
 
 **Step 5: Commit**
@@ -1035,7 +1035,7 @@ describe('analyzePriceChange', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @amazonpl/amazon-scraper test`
+Run: `pnpm --filter @liskobot/amazon-scraper test`
 Expected: FAIL
 
 **Step 3: Implement price processor**
@@ -1088,7 +1088,7 @@ export function analyzePriceChange(
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @amazonpl/amazon-scraper test`
+Run: `pnpm --filter @liskobot/amazon-scraper test`
 Expected: All 6 tests PASS
 
 **Step 5: Integrate into pg-boss worker**
@@ -1181,12 +1181,12 @@ export function createCeneoCrawler() {
 
 ```typescript
 // packages/ceneo-service/src/index.ts
-import { createDb, createBoss, QUEUES } from '@amazonpl/shared';
-import type { CeneoVerifyJob, CeneoResultJob } from '@amazonpl/shared';
+import { createDb, createBoss, QUEUES } from '@liskobot/shared';
+import type { CeneoVerifyJob, CeneoResultJob } from '@liskobot/shared';
 import { config } from './config.js';
 import { createCeneoCrawler } from './crawler.js';
 import { eq } from 'drizzle-orm';
-import { products } from '@amazonpl/shared';
+import { products } from '@liskobot/shared';
 
 async function main() {
   const db = createDb(config.databaseUrl);
@@ -1230,7 +1230,7 @@ main().catch(console.error);
 
 **Step 3: Verify it compiles**
 
-Run: `pnpm --filter @amazonpl/ceneo-service build`
+Run: `pnpm --filter @liskobot/ceneo-service build`
 Expected: Compiles with no errors
 
 **Step 4: Commit**
@@ -1294,7 +1294,7 @@ export function parseCeneoIdFromUrl(url: string): string | null {
 
 **Step 4: Run tests**
 
-Run: `pnpm --filter @amazonpl/ceneo-service test`
+Run: `pnpm --filter @liskobot/ceneo-service test`
 Expected: PASS
 
 **Step 5: Commit**
@@ -1354,7 +1354,7 @@ describe('calculatePriority', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @amazonpl/bot-service test`
+Run: `pnpm --filter @liskobot/bot-service test`
 Expected: FAIL
 
 **Step 3: Implement scheduler logic**
@@ -1362,8 +1362,8 @@ Expected: FAIL
 ```typescript
 // packages/bot-service/src/scheduler.ts
 import PgBoss from 'pg-boss';
-import { Db, products, QUEUES } from '@amazonpl/shared';
-import type { PriceCheckJob } from '@amazonpl/shared';
+import { Db, products, QUEUES } from '@liskobot/shared';
+import type { PriceCheckJob } from '@liskobot/shared';
 import { lte, asc } from 'drizzle-orm';
 
 interface SchedulerInput {
@@ -1416,7 +1416,7 @@ export function registerScheduler(boss: PgBoss, db: Db) {
 
 **Step 4: Run tests**
 
-Run: `pnpm --filter @amazonpl/bot-service test`
+Run: `pnpm --filter @liskobot/bot-service test`
 Expected: All tests PASS
 
 **Step 5: Commit**
@@ -1447,8 +1447,8 @@ This is the core orchestration logic in bot-service. When `price-changed` arrive
 // packages/bot-service/src/handlers/price-changed.ts
 import PgBoss from 'pg-boss';
 import { eq, and } from 'drizzle-orm';
-import { Db, watches, products, QUEUES } from '@amazonpl/shared';
-import type { PriceChangedJob, NotifyUserJob } from '@amazonpl/shared';
+import { Db, watches, products, QUEUES } from '@liskobot/shared';
+import type { PriceChangedJob, NotifyUserJob } from '@liskobot/shared';
 import { formatPriceAlert, formatAdminAlert } from '../notifications.js';
 import { config } from '../config.js';
 
@@ -1602,13 +1602,13 @@ RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY packages/shared/ packages/shared/
 COPY packages/bot-service/ packages/bot-service/
-RUN pnpm --filter @amazonpl/shared build && pnpm --filter @amazonpl/bot-service build
+RUN pnpm --filter @liskobot/shared build && pnpm --filter @liskobot/bot-service build
 
 FROM node:22-alpine
 WORKDIR /app
 COPY --from=builder /app/packages/bot-service/dist ./dist
 COPY --from=builder /app/packages/bot-service/node_modules ./node_modules
-COPY --from=builder /app/packages/shared/dist ./node_modules/@amazonpl/shared/dist
+COPY --from=builder /app/packages/shared/dist ./node_modules/@liskobot/shared/dist
 
 HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost:3000/health || exit 1
 CMD ["node", "dist/index.js"]

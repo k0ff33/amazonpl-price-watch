@@ -1,4 +1,4 @@
-# Architecture: amazonpl-price-watch
+# Architecture: Liskobot (liskobot.pl)
 
 ## 1. System Overview
 
