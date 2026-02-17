@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { Worker } from 'bullmq';
 import { createBot } from './bot.js';
 import { createDb, parseRedisUrl, QUEUES } from '@liskobot/shared';
@@ -31,6 +32,16 @@ async function main() {
   notifyWorker.on('failed', (job, err) => {
     console.error(`Notify job ${job?.id} failed:`, err.message);
   });
+
+  createServer((req, res) => {
+    if (req.url === '/health') {
+      res.writeHead(200);
+      res.end('ok');
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  }).listen(3000);
 
   await bot.start();
   console.log('Bot service started');

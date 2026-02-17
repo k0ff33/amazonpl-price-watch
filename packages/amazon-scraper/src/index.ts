@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { Worker, Queue } from 'bullmq';
 import { eq } from 'drizzle-orm';
 import { createDb, parseRedisUrl, QUEUES, products, priceHistory } from '@liskobot/shared';
@@ -138,6 +139,16 @@ async function main() {
   worker.on('failed', (job, err) => {
     console.error(`Job ${job?.id} failed:`, err.message);
   });
+
+  createServer((req, res) => {
+    if (req.url === '/health') {
+      res.writeHead(200);
+      res.end('ok');
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  }).listen(3001);
 
   console.log('Amazon scraper started');
 }

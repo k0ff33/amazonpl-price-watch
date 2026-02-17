@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { Worker, Queue } from 'bullmq';
 import { createDb, parseRedisUrl, QUEUES, products } from '@liskobot/shared';
 import type { CeneoVerifyJob, CeneoResultJob } from '@liskobot/shared';
@@ -52,6 +53,16 @@ async function main() {
   worker.on('failed', (job, err) => {
     console.error(`Ceneo job ${job?.id} failed:`, err.message);
   });
+
+  createServer((req, res) => {
+    if (req.url === '/health') {
+      res.writeHead(200);
+      res.end('ok');
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  }).listen(3002);
 
   console.log('Ceneo service started');
 }
