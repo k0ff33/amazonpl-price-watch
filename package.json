@@ -2,8 +2,8 @@
   "name": "amazonpl-price-watch",
   "private": true,
   "scripts": {
-    "db:generate": "pnpm --filter @amazonpl/shared drizzle-kit generate",
-    "db:migrate": "pnpm --filter @amazonpl/shared drizzle-kit migrate",
+    "db:generate": "pnpm --filter @amazonpl/shared exec drizzle-kit generate",
+    "db:migrate": "pnpm --filter @amazonpl/shared exec drizzle-kit migrate",
     "dev:bot": "pnpm --filter @amazonpl/bot-service dev",
     "dev:amazon": "pnpm --filter @amazonpl/amazon-scraper dev",
     "dev:ceneo": "pnpm --filter @amazonpl/ceneo-service dev"
