@@ -1,4 +1,4 @@
-FROM node:22-bookworm AS builder
+FROM node:24-bookworm AS builder
 RUN corepack enable pnpm
 RUN npx playwright install --with-deps chromium
 
@@ -12,7 +12,7 @@ COPY packages/shared/ packages/shared/
 COPY packages/amazon-scraper/ packages/amazon-scraper/
 RUN pnpm --filter @liskobot/shared build && pnpm --filter @liskobot/amazon-scraper build
 
-FROM node:22-bookworm-slim
+FROM node:24-bookworm-slim
 RUN npx playwright install --with-deps chromium
 WORKDIR /app
 COPY --from=builder /app/packages/amazon-scraper/dist ./dist

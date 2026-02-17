@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 RUN corepack enable pnpm
 
 WORKDIR /app
@@ -11,7 +11,7 @@ COPY packages/shared/ packages/shared/
 COPY packages/ceneo-service/ packages/ceneo-service/
 RUN pnpm --filter @liskobot/shared build && pnpm --filter @liskobot/ceneo-service build
 
-FROM node:22-alpine
+FROM node:24-alpine
 WORKDIR /app
 COPY --from=builder /app/packages/ceneo-service/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
