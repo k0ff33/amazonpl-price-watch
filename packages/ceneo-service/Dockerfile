@@ -13,11 +13,12 @@ RUN pnpm --filter @liskobot/shared build && pnpm --filter @liskobot/ceneo-servic
 
 FROM node:22-alpine
 WORKDIR /app
-COPY --from=builder /app/packages/ceneo-service/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/shared/dist ./node_modules/@liskobot/shared/dist
-COPY --from=builder /app/packages/shared/package.json ./node_modules/@liskobot/shared/package.json
+COPY --from=builder --chown=node:node /app/packages/ceneo-service/dist ./dist
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/packages/shared/dist ./node_modules/@liskobot/shared/dist
+COPY --from=builder --chown=node:node /app/packages/shared/package.json ./node_modules/@liskobot/shared/package.json
 
 EXPOSE 3002
 HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost:3002/health || exit 1
+USER node
 CMD ["node", "dist/index.js"]

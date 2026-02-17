@@ -1,4 +1,4 @@
-import { pgTable, text, numeric, boolean, bigint, uuid, timestamp, bigserial, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, numeric, boolean, bigint, uuid, timestamp, bigserial, index, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const products = pgTable('products', {
   asin: text('asin').primaryKey(),
@@ -17,12 +17,16 @@ export const products = pgTable('products', {
 export const watches = pgTable('watches', {
   id: uuid('id').primaryKey().defaultRandom(),
   telegramChatId: bigint('telegram_chat_id', { mode: 'number' }).notNull(),
+  ownerUserId: bigint('owner_user_id', { mode: 'number' }).notNull(),
   asin: text('asin').references(() => products.asin).notNull(),
   targetPrice: numeric('target_price', { precision: 10, scale: 2 }),
   notifyHistoricalLow: boolean('notify_historical_low').default(true).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex('ux_watches_chat_owner_asin').on(table.telegramChatId, table.ownerUserId, table.asin),
+  index('idx_watches_owner_active').on(table.ownerUserId, table.isActive),
+]);
 
 export const priceHistory = pgTable('price_history', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),

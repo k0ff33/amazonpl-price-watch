@@ -24,7 +24,7 @@ async function main() {
     QUEUES.NOTIFY_USER,
     async (job) => {
       const { telegramChatId, message } = job.data;
-      await bot.api.sendMessage(telegramChatId, message, { parse_mode: 'Markdown' });
+      await bot.api.sendMessage(telegramChatId, message);
     },
     { connection, concurrency: 5 },
   );

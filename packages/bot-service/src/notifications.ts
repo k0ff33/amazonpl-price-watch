@@ -10,7 +10,7 @@ interface PriceAlertInput {
 
 export function formatPriceAlert(input: PriceAlertInput): string {
   const { title, asin, oldPrice, newPrice, isHistoricalLow, unverified, associateTag } = input;
-  const link = `https://www.amazon.pl/dp/${asin}?tag=${associateTag}`;
+  const link = `https://www.amazon.pl/dp/${asin}?tag=${encodeURIComponent(associateTag)}`;
 
   let prefix = '';
   if (unverified) prefix = 'Unverified price drop - confirming...\n\n';
@@ -29,7 +29,7 @@ export function formatPriceAlert(input: PriceAlertInput): string {
 
   const disclosure = '\n\nAs an Amazon Associate, I earn from qualifying purchases.';
 
-  return `${prefix}${body}\n\n[Buy on Amazon.pl](${link})${disclosure}`;
+  return `${prefix}${body}\n\nBuy on Amazon.pl: ${link}${disclosure}`;
 }
 
 export function formatAdminAlert(

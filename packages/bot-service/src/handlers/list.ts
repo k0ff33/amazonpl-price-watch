@@ -1,11 +1,12 @@
 import { Context } from 'grammy';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Db, watches, products } from '@liskobot/shared';
 
 export function createListHandler(db: Db) {
   return async (ctx: Context) => {
     const chatId = ctx.chat?.id;
-    if (!chatId) return;
+    const ownerUserId = ctx.from?.id;
+    if (!chatId || !ownerUserId) return;
 
     const userWatches = await db
       .select({
@@ -17,7 +18,10 @@ export function createListHandler(db: Db) {
       })
       .from(watches)
       .innerJoin(products, eq(watches.asin, products.asin))
-      .where(eq(watches.telegramChatId, chatId));
+      .where(and(
+        eq(watches.telegramChatId, chatId),
+        eq(watches.ownerUserId, ownerUserId),
+      ));
 
     if (userWatches.length === 0) {
       await ctx.reply('No active watches. Send an Amazon.pl URL to start tracking.');

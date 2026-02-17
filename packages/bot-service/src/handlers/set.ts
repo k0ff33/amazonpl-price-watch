@@ -5,8 +5,9 @@ import { Db, watches } from '@liskobot/shared';
 export function createSetHandler(db: Db) {
   return async (ctx: Context) => {
     const chatId = ctx.chat?.id;
+    const ownerUserId = ctx.from?.id;
     const args = (ctx.match as string | undefined)?.trim();
-    if (!chatId || !args) {
+    if (!chatId || !ownerUserId || !args) {
       await ctx.reply('Usage: /set <ASIN> <price>');
       return;
     }
@@ -29,7 +30,11 @@ export function createSetHandler(db: Db) {
       .update(watches)
       .set({ targetPrice: price.toFixed(2) })
       .where(
-        and(eq(watches.telegramChatId, chatId), eq(watches.asin, asin)),
+        and(
+          eq(watches.telegramChatId, chatId),
+          eq(watches.ownerUserId, ownerUserId),
+          eq(watches.asin, asin),
+        ),
       )
       .returning({ id: watches.id });
 

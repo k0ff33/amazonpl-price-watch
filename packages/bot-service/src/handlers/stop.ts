@@ -1,12 +1,13 @@
 import { Context } from 'grammy';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { Db, watches, products } from '@liskobot/shared';
 
 export function createStopHandler(db: Db) {
   return async (ctx: Context) => {
     const chatId = ctx.chat?.id;
+    const ownerUserId = ctx.from?.id;
     const asin = ctx.match as string | undefined;
-    if (!chatId || !asin) {
+    if (!chatId || !ownerUserId || !asin) {
       await ctx.reply('Usage: /stop <ASIN>');
       return;
     }
@@ -17,7 +18,11 @@ export function createStopHandler(db: Db) {
     const deleted = await db
       .delete(watches)
       .where(
-        and(eq(watches.telegramChatId, chatId), eq(watches.asin, upperAsin)),
+        and(
+          eq(watches.telegramChatId, chatId),
+          eq(watches.ownerUserId, ownerUserId),
+          eq(watches.asin, upperAsin),
+        ),
       )
       .returning({ asin: watches.asin });
 
@@ -26,17 +31,11 @@ export function createStopHandler(db: Db) {
       return;
     }
 
-    // Decrement subscriber count on the product
-    const product = await db.query.products.findFirst({
-      where: eq(products.asin, upperAsin),
-    });
-
-    if (product) {
-      await db
-        .update(products)
-        .set({ subscriberCount: Math.max((product.subscriberCount ?? 0) - 1, 0) })
-        .where(eq(products.asin, upperAsin));
-    }
+    // Decrement subscriber count for the removed watch.
+    await db
+      .update(products)
+      .set({ subscriberCount: sql`GREATEST(COALESCE(${products.subscriberCount}, 0) - 1, 0)` })
+      .where(eq(products.asin, upperAsin));
 
     await ctx.reply(`Stopped tracking ${upperAsin}.`);
   };

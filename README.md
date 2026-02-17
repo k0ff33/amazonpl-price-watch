@@ -18,6 +18,13 @@ Monorepo (pnpm workspaces) deployed via **Coolify** on a single VPS. Five Docker
 *   **Core**: grammY, Crawlee, Drizzle ORM, BullMQ
 *   **Infra**: Docker, PostgreSQL 16, Redis 7
 
+## Security Model
+
+*   **Group chats are supported with user ownership isolation**: watches are scoped to `(telegram_chat_id, owner_user_id, asin)`, so `/list`, `/set`, `/pause`, and `/stop` only affect the calling user.
+*   **Per-user quota**: maximum `50` active watches per Telegram user (across chats).
+*   **Notification safety**: user-facing alerts are sent as plain text (no Telegram Markdown parse mode), preventing formatting/link injection from scraped product titles.
+*   **Runtime hardening**: production Redis requires authentication and all service containers run as non-root (`USER node`).
+
 ## Local Development
 
 ### Prerequisites
@@ -79,6 +86,18 @@ pnpm -r build
 
 ### Production (Docker)
 
+Set these env vars before running production compose:
+
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `REDIS_PASSWORD`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_ADMIN_CHAT_ID`
+- `AMAZON_ASSOCIATE_TAG`
+- `PROXY_URL` (optional)
+
+On first deployment, run DB migrations before starting long-running services.
+
 ```bash
 docker compose up -d --build
 ```
@@ -88,3 +107,4 @@ docker compose up -d --build
 *   [Architecture](docs/architecture.md)
 *   [Scraper Design](docs/scraper_design.md)
 *   [Implementation Plan](docs/plans/2026-02-17-implementation-plan.md)
+*   [Security Hardening Plan](docs/plans/2026-02-17-security-hardening-plan.md)

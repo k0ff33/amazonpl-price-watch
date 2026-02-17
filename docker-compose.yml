@@ -19,10 +19,11 @@ services:
     image: redis:7-alpine
     mem_limit: 128m
     restart: always
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,7 +41,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/pricewatch
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_ADMIN_CHAT_ID: ${TELEGRAM_ADMIN_CHAT_ID}
       AMAZON_ASSOCIATE_TAG: ${AMAZON_ASSOCIATE_TAG}
@@ -58,7 +59,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/pricewatch
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       PROXY_URL: ${PROXY_URL:-}
 
   ceneo-service:
@@ -74,7 +75,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/pricewatch
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 
 volumes:
   pgdata:
