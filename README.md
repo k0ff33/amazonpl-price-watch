@@ -2,29 +2,88 @@
 
 **Liskobot** (liskobot.pl) is a "Lisek chytrusek" (sly fox) price and stock tracker for Amazon.pl. It helps users find the best deals and historical lows, notifying them via Telegram when the hunt is successful.
 
-## 🏗 Architecture (Planned)
+## Architecture
 
-Monorepo deployed via **Coolify** on a single VPS.
+Monorepo (pnpm workspaces) deployed via **Coolify** on a single VPS. Five Docker containers:
 
-*   **`bot-service`**: Telegram bot (grammY), job orchestration, and notifications.
-*   **`amazon-scraper`**: Playwright-based scraper with residential proxies and stealth plugins.
-*   **`ceneo-service`**: Auxiliary HTTP scraper for price verification via Ceneo.pl.
-*   **`postgres`**: Data persistence.
-*   **`redis`**: BullMQ job queues.
+*   **`bot-service`** — Telegram bot (grammY), job orchestration, smart scheduler, and notification fan-out.
+*   **`amazon-scraper`** — Crawlee PlaywrightCrawler + stealth + residential proxies.
+*   **`ceneo-service`** — Crawlee CheerioCrawler + Impit for price verification via Ceneo.pl.
+*   **`postgres`** — PostgreSQL 16 for persistent data.
+*   **`redis`** — Redis 7 for BullMQ job queues.
 
-## 🛠 Tech Stack
+## Tech Stack
 
 *   **Runtime**: Node.js 22+, TypeScript
 *   **Core**: grammY, Crawlee, Drizzle ORM, BullMQ
 *   **Infra**: Docker, PostgreSQL 16, Redis 7
 
-## ⚡ Status
+## Local Development
 
-**Implementation Complete**
+### Prerequisites
 
-All core services are implemented: Telegram bot, Amazon scraper, Ceneo verification, smart scheduler, and notification fan-out. Ready for deployment and live testing.
+- Node.js 22+
+- pnpm
+- Docker & Docker Compose
+- A Telegram bot token (from [@BotFather](https://t.me/BotFather))
 
-## 📄 Documentation
+### Setup
+
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your values (at minimum: TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID, AMAZON_ASSOCIATE_TAG)
+
+# 3. Start PostgreSQL + Redis
+docker compose -f docker-compose.dev.yml up -d
+
+# 4. Generate and run database migrations
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricewatch pnpm db:generate
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricewatch pnpm db:migrate
+
+# 5. Build shared package (required before running services)
+pnpm --filter @liskobot/shared build
+```
+
+### Running Services
+
+Each service runs independently. In separate terminals:
+
+```bash
+# Telegram bot + scheduler + notification handlers
+pnpm dev:bot
+
+# Amazon scraper (requires Playwright/Chromium)
+pnpm dev:amazon
+
+# Ceneo verification service
+pnpm dev:ceneo
+```
+
+### Tests
+
+```bash
+pnpm --filter @liskobot/bot-service test
+pnpm --filter @liskobot/amazon-scraper test
+pnpm --filter @liskobot/ceneo-service test
+```
+
+### Build
+
+```bash
+pnpm -r build
+```
+
+### Production (Docker)
+
+```bash
+docker compose up -d --build
+```
+
+## Documentation
 
 *   [Architecture](docs/architecture.md)
 *   [Scraper Design](docs/scraper_design.md)
