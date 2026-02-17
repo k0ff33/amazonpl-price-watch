@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    mem_limit: 512m
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: pricewatch
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    mem_limit: 128m
+    restart: always
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bot-service:
+    build:
+      context: .
+      dockerfile: packages/bot-service/Dockerfile
+    mem_limit: 512m
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/pricewatch
+      REDIS_URL: redis://redis:6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_ADMIN_CHAT_ID: ${TELEGRAM_ADMIN_CHAT_ID}
+      AMAZON_ASSOCIATE_TAG: ${AMAZON_ASSOCIATE_TAG}
+
+  amazon-scraper:
+    build:
+      context: .
+      dockerfile: packages/amazon-scraper/Dockerfile
+    mem_limit: 2g
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/pricewatch
+      REDIS_URL: redis://redis:6379
+      PROXY_URL: ${PROXY_URL:-}
+
+  ceneo-service:
+    build:
+      context: .
+      dockerfile: packages/ceneo-service/Dockerfile
+    mem_limit: 256m
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/pricewatch
+      REDIS_URL: redis://redis:6379
+
+volumes:
+  pgdata:
+  redisdata:
