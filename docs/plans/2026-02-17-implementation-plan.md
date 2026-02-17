@@ -1,10 +1,10 @@
 # Liskobot (liskobot.pl) Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Status:** COMPLETED (2026-02-17). All 15 tasks implemented on `feat/implementation` branch.
 
 **Goal:** Build a Telegram-based Amazon.pl price tracker with scraping fallback chain, smart scheduling, and fan-out notifications.
 
-**Architecture:** Monorepo with 3 Node.js/TypeScript services (bot-service, amazon-scraper, ceneo-service) sharing a Drizzle ORM schema, communicating via BullMQ job queues in PostgreSQL. Deployed as 4 Docker containers via Coolify.
+**Architecture:** Monorepo with 3 Node.js/TypeScript services (bot-service, amazon-scraper, ceneo-service) sharing a Drizzle ORM schema, communicating via BullMQ job queues in Redis. Deployed as 5 Docker containers via Coolify.
 
 **Tech Stack:** TypeScript, Node.js 22+, pnpm workspaces, Drizzle ORM, BullMQ, grammY, Crawlee (PlaywrightCrawler + CheerioCrawler), Impit, PostgreSQL 16, Docker
 

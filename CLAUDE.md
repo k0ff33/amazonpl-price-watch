@@ -12,7 +12,7 @@ Amazon.pl price tracker. Users paste Amazon URLs in a Telegram bot, set target p
 # Dependencies
 pnpm install
 
-# Local Postgres
+# Local Postgres + Redis
 docker compose -f docker-compose.dev.yml up -d
 
 # Database migrations
@@ -25,9 +25,9 @@ pnpm dev:amazon
 pnpm dev:ceneo
 
 # Tests
-pnpm --filter @amazonpl/bot-service test
-pnpm --filter @amazonpl/amazon-scraper test
-pnpm --filter @amazonpl/ceneo-service test
+pnpm --filter @liskobot/bot-service test
+pnpm --filter @liskobot/amazon-scraper test
+pnpm --filter @liskobot/ceneo-service test
 
 # Build
 pnpm -r build
@@ -38,7 +38,7 @@ docker compose up -d --build
 
 ## Architecture
 
-Monorepo (pnpm workspaces) with 4 Docker containers:
+Monorepo (pnpm workspaces) with 5 Docker containers:
 
 - **bot-service** — Telegram bot (grammY), smart scheduler, notification fan-out, Creators API calls. The orchestrator.
 - **amazon-scraper** — Crawlee `PlaywrightCrawler` + stealth + residential proxies. Consumes `amazon-scrape` jobs.

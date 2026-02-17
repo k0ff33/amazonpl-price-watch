@@ -2,7 +2,7 @@
 
 ## 1. System Overview
 
-Self-hosted, modular SaaS deployed via **Coolify** on a single Hetzner VPS. Four Docker containers, no external dependencies beyond a proxy provider.
+Self-hosted, modular SaaS deployed via **Coolify** on a single Hetzner VPS. Five Docker containers (3 services + PostgreSQL + Redis), no external dependencies beyond a proxy provider.
 
 ```mermaid
 graph TD
@@ -13,7 +13,7 @@ graph TD
 
     Bot -->|price-check job| Bot
     Bot -->|try Creators API| API[Amazon Creators API]
-    Bot -->|on API fail: amazon-scrape job| PG
+    Bot -->|on API fail: amazon-scrape job| Redis
 
     subgraph "Amazon Scraper Service"
         AS[Crawlee PlaywrightCrawler<br/>+ stealth + proxies]
@@ -23,12 +23,12 @@ graph TD
         CS[Crawlee CheerioCrawler<br/>+ Impit TLS]
     end
 
-    PG -->|amazon-scrape| AS
-    AS -->|price-changed| PG
-    AS -->|ceneo-verify on block/anomaly| PG
-    PG -->|ceneo-verify| CS
-    CS -->|ceneo-result| PG
-    PG -->|notify-user| Bot
+    Redis -->|amazon-scrape| AS
+    AS -->|price-changed| Redis
+    AS -->|ceneo-verify on block/anomaly| Redis
+    Redis -->|ceneo-verify| CS
+    CS -->|ceneo-result| Redis
+    Redis -->|notify-user| Bot
     Bot -->|send alert| Telegram
 ```
 
@@ -41,11 +41,15 @@ graph LR
         A[amazon-scraper<br/>2GB limit]
         C[ceneo-service<br/>256MB limit]
         P[(PostgreSQL<br/>512MB limit)]
+        R[(Redis<br/>128MB limit)]
     end
 
     B <--> P
     A <--> P
     C <--> P
+    B <--> R
+    A <--> R
+    C <--> R
 ```
 
 | Container | Stack | RAM | Role |
@@ -105,6 +109,7 @@ sequenceDiagram
     participant Bot as bot-service
     participant API as Creators API
     participant AS as amazon-scraper
+    participant Redis as Redis (BullMQ)
     participant DB as PostgreSQL
     participant CS as ceneo-service
     participant TG as Telegram
@@ -115,21 +120,22 @@ sequenceDiagram
         API-->>Bot: price data
         Bot->>DB: update price
     else API unavailable
-        Bot->>DB: enqueue amazon-scrape
-        DB->>AS: amazon-scrape job
+        Bot->>Redis: enqueue amazon-scrape
+        Redis->>AS: amazon-scrape job
         AS->>AS: Playwright scrape
+        AS->>DB: write price
         alt Success
-            AS->>DB: write price + enqueue price-changed
+            AS->>Redis: enqueue price-changed
             alt Drop > 30%
-                AS->>DB: enqueue ceneo-verify
-                DB->>CS: ceneo-verify job
-                CS->>DB: ceneo-result
+                AS->>Redis: enqueue ceneo-verify
+                Redis->>CS: ceneo-verify job
+                CS->>Redis: ceneo-result
             end
         else Blocked
-            AS->>DB: enqueue ceneo-verify + admin alert
+            AS->>Redis: enqueue ceneo-verify + admin alert
         end
     end
-    DB->>Bot: price-changed
+    Redis->>Bot: price-changed
     Bot->>DB: query watches
     loop Batches of 50
         Bot->>TG: notify-user (affiliate link)
@@ -192,7 +198,7 @@ price_history
 | Amazon API | Creators API SDK (OAuth 2.0) |
 | Job queue | BullMQ (Redis-backed) |
 | Database | PostgreSQL 16 |
-| ORM | Drizzle ORM or Kysely |
+| ORM | Drizzle ORM |
 | Crawler scaffolding | apify-cli (local project setup) |
 | Deployment | Coolify (Docker) |
 | Proxies | IPRoyal or Scrapeless (residential) |

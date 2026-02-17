@@ -231,7 +231,7 @@ Sent to admin's personal Telegram chat:
 | Amazon API | Creators API SDK (Node.js, OAuth 2.0) |
 | Job queue | BullMQ (Redis-backed) |
 | Database | PostgreSQL 16 |
-| ORM | Drizzle ORM or Kysely |
+| ORM | Drizzle ORM |
 | Crawler scaffolding | apify-cli (local project setup) |
 | Deployment | Coolify (Docker Compose) |
 | Proxy provider | IPRoyal or Scrapeless (residential, pay-as-you-go) |
