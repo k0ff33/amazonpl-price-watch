@@ -30,6 +30,28 @@ flowchart TD
     Drop -->|No| Write[Write to DB<br/>Enqueue price-changed]
 ```
 
+### Verified Selectors (tested 2026-02-17)
+
+**Price extraction:**
+- **Primary:** `.a-price-whole` + `.a-price-fraction`
+  - `.a-price-whole` returns `"1 171,"` — contains non-breaking space (thousand separator) and trailing comma. Must strip both.
+  - `.a-price-fraction` returns `"00"` — clean.
+  - Parsing: `whole.replace(/[\s,]/g, '')` + `'.'` + `fraction` → `"1171.00"`
+- **Alternative:** `#corePrice_feature_div .a-price .a-offscreen` returns `"1 171,00zł"` — single element, but only present when buy box exists (null on out-of-stock/third-party-only).
+- **Caution:** `.a-price .a-offscreen` without scoping returns 30+ prices (related products, other sellers). Always scope to `#corePrice_feature_div`.
+
+**Stock detection:**
+- Do NOT rely on `#availability` text — it contains JavaScript on some pages and text varies widely ("Gotowe do wysyłki w ciągu 1–2 dni", not always "W magazynie").
+- **Recommended approach:**
+  - `isInStock = (#add-to-cart-button exists) OR (#buy-now-button exists)`
+  - `isThirdPartyOnly = (#buybox-see-all-buying-choices exists) AND NOT isInStock`
+  - Third-party-only pages show "Wszystkie opcje zakupu" button and prices from sellers, but no direct buy box.
+
+**Other selectors:**
+- **Title:** `#productTitle` — verified, works on all page types.
+- **ASIN:** `input[name="ASIN"]` — verified, works on all page types.
+- **CAPTCHA:** `form[action="/errors/validateCaptcha"]` — standard Amazon CAPTCHA form.
+
 ### Configuration
 - **Concurrency:** 1 browser instance, sequential scrapes in fresh incognito contexts
 - **Headers:** `Accept-Language: pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7`

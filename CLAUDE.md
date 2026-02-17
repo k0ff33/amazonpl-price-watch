@@ -1,60 +1,62 @@
-# Project: amazonpl-price-watch
+# CLAUDE.md
 
-Amazon.pl price tracker SaaS. Telegram-based, commission via affiliate links.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What This Is
+
+Amazon.pl price tracker. Users paste Amazon URLs in a Telegram bot, set target prices, get notified on drops. Revenue via Amazon Associates affiliate links.
+
+## Commands
+
+```bash
+# Dependencies
+pnpm install
+
+# Local Postgres
+docker compose -f docker-compose.dev.yml up -d
+
+# Database migrations
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricewatch pnpm db:generate
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricewatch pnpm db:migrate
+
+# Dev (each service)
+pnpm dev:bot
+pnpm dev:amazon
+pnpm dev:ceneo
+
+# Tests
+pnpm --filter @amazonpl/bot-service test
+pnpm --filter @amazonpl/amazon-scraper test
+pnpm --filter @amazonpl/ceneo-service test
+
+# Build
+pnpm -r build
+
+# Production
+docker compose up -d --build
+```
 
 ## Architecture
 
-- **Monorepo:** pnpm workspaces, 3 services + shared package
-- **Services:** bot-service (grammY + pg-boss), amazon-scraper (Crawlee Playwright), ceneo-service (Crawlee Cheerio + Impit)
-- **Database:** PostgreSQL 16, Drizzle ORM
-- **Job queue:** pg-boss (no Redis)
-- **Deployment:** Coolify, Docker Compose, Hetzner 4GB VPS
+Monorepo (pnpm workspaces) with 4 Docker containers:
 
-## Project Structure
+- **bot-service** — Telegram bot (grammY), smart scheduler, notification fan-out, Creators API calls. The orchestrator.
+- **amazon-scraper** — Crawlee `PlaywrightCrawler` + stealth + residential proxies. Consumes `amazon-scrape` jobs.
+- **ceneo-service** — Crawlee `CheerioCrawler` + Impit (browser TLS fingerprint). HTTP only, no Chromium. Consumes `ceneo-verify` jobs.
+- **PostgreSQL** — All data + pg-boss job queues (no Redis).
+
+Services communicate exclusively via pg-boss queues in Postgres. No direct HTTP calls between services.
+
+### Data flow
 
 ```
-packages/
-  shared/           # DB schema (Drizzle), pg-boss queue defs, shared types
-  bot-service/      # Telegram bot, scheduler, notifications, Creators API
-  amazon-scraper/   # Crawlee PlaywrightCrawler + stealth + proxies
-  ceneo-service/    # Crawlee CheerioCrawler + Impit (browser TLS)
-docs/
-  plans/            # Design doc and implementation plan
-  architecture.md
-  requirements.md
-  scraper_design.md
+pg-boss cron → bot-service tries Creators API → on fail: amazon-scrape job →
+amazon-scraper writes price → price-changed job → bot-service fans out notifications
 ```
 
-## Key Docs
+On anomalous drops (>30%) or Amazon blocks: `ceneo-verify` job dispatched, admin pinged for manual review.
 
-- `docs/plans/2026-02-17-architecture-design.md` — approved architecture (read this first)
-- `docs/plans/2026-02-17-implementation-plan.md` — step-by-step implementation plan
-- `docs/scraper_design.md` — scraper deep-dive with Ceneo selectors
-
-## Development Rules
-
-- **Always use Context7** (MCP tool) to look up latest docs before using any library (Crawlee, pg-boss, grammY, Drizzle, Impit, Playwright)
-- **TDD:** Write failing tests first, then implement
-- **Commit frequently:** After each task completion
-- **YAGNI:** Don't add features not in the plan
-- Use `pnpm` exclusively (not npm or yarn)
-- TypeScript strict mode everywhere
-
-## Key Technical Details
-
-- Amazon.pl Marketplace ID: `A1C3SOZRARQ6R3`
-- Amazon.pl Ceneo shop ID: `42774`
-- Price selectors: `.a-price-whole` + `.a-price-fraction`
-- Stock selector: `#availability`
-- Ceneo prices are server-rendered (no JS needed)
-
-## Data Source Fallback Chain
-
-1. Amazon Creators API (post 10-sale)
-2. Amazon Scraper (Playwright)
-3. Ceneo verification (HTTP only, on block or >30% drop)
-
-## pg-boss Queues
+### Queue map
 
 | Queue | Producer | Consumer |
 |---|---|---|
@@ -64,3 +66,25 @@ docs/
 | `ceneo-verify` | amazon-scraper | ceneo-service |
 | `ceneo-result` | ceneo-service | bot-service |
 | `notify-user` | bot-service | bot-service |
+
+## Domain Knowledge
+
+- Amazon.pl Marketplace ID: `A1C3SOZRARQ6R3`
+- Amazon price selectors: `.a-price-whole` (returns `"1 171,"` — strip spaces+comma) + `.a-price-fraction`, or scoped `#corePrice_feature_div .a-price .a-offscreen`
+- Stock detection: check `#add-to-cart-button` / `#buy-now-button` existence (NOT `#availability` text — unreliable). Third-party-only pages have `#buybox-see-all-buying-choices`.
+- Ceneo shop ID for Amazon.pl: `42774` — prices are server-rendered (no JS needed)
+- Creators API requires 10 sales before `Offers` endpoint access — scraping is the real primary source during cold-start
+- Amazon compliance: every link needs Associate tag, mandatory disclosure on every alert, no caching price data >24h
+
+## Conventions
+
+- Use `pnpm` exclusively
+- Always use Context7 (MCP tool) to look up latest library docs before implementation
+- Shared code lives in `@amazonpl/shared` (DB schema, queue names, types, pg-boss factory)
+- Queue names and job payload types are defined in `packages/shared/src/queues.ts` and `packages/shared/src/types.ts`
+
+## Key Docs
+
+- `docs/plans/2026-02-17-architecture-design.md` — approved architecture (read first for full context)
+- `docs/plans/2026-02-17-implementation-plan.md` — task-by-task implementation plan
+- `docs/scraper_design.md` — scraper workflows, selectors, Ceneo verification logic

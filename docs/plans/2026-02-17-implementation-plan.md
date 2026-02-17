@@ -882,21 +882,25 @@ export function createAmazonCrawler(proxyUrl?: string) {
     }
 
     // Extract price
+    // .a-price-whole returns "1 171," (with non-breaking space + trailing comma)
     const wholePrice = await page.$eval('.a-price-whole', (el) => el.textContent?.trim()).catch(() => null);
     const fractionPrice = await page.$eval('.a-price-fraction', (el) => el.textContent?.trim()).catch(() => null);
 
     let price: string | null = null;
     if (wholePrice) {
-      const whole = wholePrice.replace(/[.,\s]/g, '');
-      const fraction = fractionPrice?.replace(/[.,\s]/g, '') || '00';
+      const whole = wholePrice.replace(/[\s,.\u00A0]/g, ''); // strip spaces, commas, dots, NBSP
+      const fraction = fractionPrice?.replace(/[\s,.\u00A0]/g, '') || '00';
       price = `${whole}.${fraction}`;
     }
 
     // Extract stock status
-    const availability = await page.$eval('#availability', (el) => el.textContent?.trim()).catch(() => null);
-    const isInStock = availability
-      ? availability.toLowerCase().includes('w magazynie') || availability.toLowerCase().includes('in stock')
-      : false;
+    // Do NOT rely on #availability text — unreliable (contains JS on some pages)
+    // Instead check for buy box buttons
+    const hasAddToCart = await page.$('#add-to-cart-button') !== null;
+    const hasBuyNow = await page.$('#buy-now-button') !== null;
+    const hasAllOptions = await page.$('#buybox-see-all-buying-choices') !== null;
+    const isInStock = hasAddToCart || hasBuyNow;
+    // hasAllOptions && !isInStock = third-party only (no direct Amazon buy box)
 
     // Extract title
     const title = await page.$eval('#productTitle', (el) => el.textContent?.trim()).catch(() => null);
