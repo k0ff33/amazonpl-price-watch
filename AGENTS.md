@@ -182,6 +182,33 @@ Files:
   - run relevant tests
 - Do not claim completion without fresh command output.
 
+### After any code change to a service
+
+Run all three verification steps for the affected package before claiming completion:
+
+```bash
+# Build
+pnpm --filter @liskobot/<service> build
+
+# Lint
+pnpm --filter @liskobot/<service> lint
+
+# Test
+pnpm --filter @liskobot/<service> test
+```
+
+If any step fails, fix the issue and re-run before moving on.
+
+### After any Dockerfile change
+
+Always verify the image builds successfully:
+
+```bash
+docker build -f packages/<service>/Dockerfile -t liskobot-<service>:verify .
+```
+
+A successful build is required before the change is considered complete. Do not skip this step.
+
 ## 9. Editing Rules
 
 - Use `pnpm` only (no npm/yarn).
@@ -194,7 +221,32 @@ Files:
   - plain-text notification safety
   - Redis auth in production compose
 
-## 10. Document Index
+## 10. MCP Servers
+
+### Dokploy MCP
+
+The Dokploy MCP server is available for managing deployments. Use it to interact with the production Dokploy instance — creating, updating, deploying, and monitoring applications, databases, and projects without leaving the session.
+
+Available tool namespaces (all prefixed `mcp__dokploy-mcp__`):
+- `application-*` — manage application lifecycle (create, deploy, start, stop, update, redeploy, etc.)
+- `domain-*` — manage domains and Traefik config
+- `postgres-*` — manage Postgres databases
+- `mysql-*` — manage MySQL databases
+- `project-*` — manage projects
+
+Use these tools when the task involves infrastructure changes, service deployments, or inspecting the state of the live environment. Always prefer Dokploy MCP over ad-hoc shell commands for deployment operations.
+
+### Accessing Application Logs
+
+To inspect live application logs on the production instance, SSH in with:
+
+```bash
+ssh deploy@liskobot-node1
+```
+
+Once connected, use `docker logs <container>` or `docker compose logs` to tail service output.
+
+## 11. Document Index
 
 Primary docs:
 - `/Users/kamilwojtczyk/Developer/private/liskobot/README.md`
