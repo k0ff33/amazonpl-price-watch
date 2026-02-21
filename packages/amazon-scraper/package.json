@@ -9,6 +9,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@crawlee/impit-client": "^3.16.0",
     "@liskobot/shared": "workspace:*",
     "crawlee": "^3.16.0",
     "playwright": "^1.58.2",

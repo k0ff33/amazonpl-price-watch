@@ -7,7 +7,7 @@
 Monorepo (pnpm workspaces) deployed via **Coolify** on a single VPS. Five Docker containers:
 
 *   **`bot-service`** — Telegram bot (grammY), job orchestration, smart scheduler, and notification fan-out.
-*   **`amazon-scraper`** — Crawlee PlaywrightCrawler + stealth + residential proxies.
+*   **`amazon-scraper`** — Crawlee Impit-first scraper with proxy and Playwright fallback chain.
 *   **`ceneo-service`** — Crawlee CheerioCrawler + Impit for price verification via Ceneo.pl.
 *   **`postgres`** — PostgreSQL 16 for persistent data.
 *   **`redis`** — Redis 7 for BullMQ job queues.
@@ -63,7 +63,7 @@ Each service runs independently. In separate terminals:
 # Telegram bot + scheduler + notification handlers
 pnpm dev:bot
 
-# Amazon scraper (requires Playwright/Chromium)
+# Amazon scraper (Impit-first; Playwright/Chromium is used only on fallback)
 pnpm dev:amazon
 
 # Ceneo verification service

@@ -4,7 +4,8 @@ import { eq } from 'drizzle-orm';
 import { createDb, parseRedisUrl, QUEUES, products, priceHistory } from '@liskobot/shared';
 import type { AmazonScrapeJob, PriceChangedJob, CeneoVerifyJob } from '@liskobot/shared';
 import { config } from './config.js';
-import { createAmazonCrawler } from './crawler.js';
+import { scrapeAmazonWithPlaywright } from './crawler.js';
+import { scrapeAmazonWithImpit } from './impit-scraper.js';
 import { analyzePriceChange } from './price-processor.js';
 import { scrapeWithFallback } from './scrape-with-fallback.js';
 
@@ -15,24 +16,30 @@ async function main() {
   const priceChangedQueue = new Queue<PriceChangedJob>(QUEUES.PRICE_CHANGED, { connection });
   const ceneoVerifyQueue = new Queue<CeneoVerifyJob>(QUEUES.CENEO_VERIFY, { connection });
 
-  const directScraper = createAmazonCrawler();
-  const proxyScraper = config.proxyUrl ? createAmazonCrawler(config.proxyUrl) : undefined;
-
   const worker = new Worker<AmazonScrapeJob>(
     QUEUES.AMAZON_SCRAPE,
     async (job) => {
       const { asin } = job.data;
       const url = `https://www.amazon.pl/dp/${asin}`;
 
-      const { result: scrapeResult, usedProxyFallback } = await scrapeWithFallback({
-        asin,
-        url,
-        direct: directScraper,
-        proxy: proxyScraper,
+      const { result: scrapeResult, strategy, usedProxyFallback, usedPlaywrightFallback } = await scrapeWithFallback({
+        impitDirect: () => scrapeAmazonWithImpit({ asin, url }),
+        impitProxy: config.proxyUrl
+          ? () => scrapeAmazonWithImpit({ asin, url, proxyUrl: config.proxyUrl })
+          : undefined,
+        playwrightProxy: config.proxyUrl
+          ? () => scrapeAmazonWithPlaywright({ asin, url, proxyUrl: config.proxyUrl })
+          : undefined,
       });
 
       if (usedProxyFallback) {
-        console.warn(`ASIN ${asin}: direct scrape blocked, proxy fallback used`);
+        console.warn(`ASIN ${asin}: fallback used (${strategy})`);
+      } else {
+        console.log(`ASIN ${asin}: scrape strategy ${strategy}`);
+      }
+
+      if (usedPlaywrightFallback) {
+        console.warn(`ASIN ${asin}: Playwright proxy fallback used`);
       }
 
       // If blocked by CAPTCHA, enqueue ceneo-verify for cross-check

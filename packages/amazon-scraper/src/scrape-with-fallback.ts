@@ -1,66 +1,74 @@
 import type { ScrapeResult } from './crawler.js';
 
-interface ScrapeRunner {
-  run: (requests: Array<{ url: string; userData: { asin: string } }>) => Promise<unknown>;
-}
-
-interface ScrapeTarget {
-  crawler: ScrapeRunner;
-  results: Map<string, ScrapeResult>;
-}
-
 interface ScrapeWithFallbackInput {
-  asin: string;
-  url: string;
-  direct: ScrapeTarget;
-  proxy?: ScrapeTarget;
+  impitDirect: () => Promise<ScrapeResult>;
+  impitProxy?: () => Promise<ScrapeResult>;
+  playwrightProxy?: () => Promise<ScrapeResult>;
 }
 
 interface ScrapeWithFallbackOutput {
   result: ScrapeResult;
   directBlocked: boolean;
   usedProxyFallback: boolean;
-}
-
-async function runAndGetResult({
-  asin,
-  url,
-  target,
-  source,
-}: {
-  asin: string;
-  url: string;
-  target: ScrapeTarget;
-  source: 'direct' | 'proxy';
-}): Promise<ScrapeResult> {
-  await target.crawler.run([{ url, userData: { asin } }]);
-  const scrapeResult = target.results.get(asin);
-  target.results.delete(asin);
-
-  if (!scrapeResult) {
-    throw new Error(`No scrape result for ASIN ${asin} via ${source} crawler`);
-  }
-
-  return scrapeResult;
+  usedPlaywrightFallback: boolean;
+  strategy: 'impit_direct' | 'impit_proxy' | 'playwright_proxy';
 }
 
 export async function scrapeWithFallback({
-  asin,
-  url,
-  direct,
-  proxy,
+  impitDirect,
+  impitProxy,
+  playwrightProxy,
 }: ScrapeWithFallbackInput): Promise<ScrapeWithFallbackOutput> {
-  const directResult = await runAndGetResult({ asin, url, target: direct, source: 'direct' });
+  const directResult = await impitDirect();
   const directBlocked = Boolean(directResult.blocked);
 
   if (!directBlocked) {
-    return { result: directResult, directBlocked: false, usedProxyFallback: false };
+    return {
+      result: directResult,
+      directBlocked: false,
+      usedProxyFallback: false,
+      usedPlaywrightFallback: false,
+      strategy: 'impit_direct',
+    };
   }
 
-  if (!proxy) {
-    return { result: directResult, directBlocked: true, usedProxyFallback: false };
+  if (!impitProxy) {
+    return {
+      result: directResult,
+      directBlocked: true,
+      usedProxyFallback: false,
+      usedPlaywrightFallback: false,
+      strategy: 'impit_direct',
+    };
   }
 
-  const proxyResult = await runAndGetResult({ asin, url, target: proxy, source: 'proxy' });
-  return { result: proxyResult, directBlocked: true, usedProxyFallback: true };
+  const impitProxyResult = await impitProxy();
+  if (!impitProxyResult.blocked) {
+    return {
+      result: impitProxyResult,
+      directBlocked: true,
+      usedProxyFallback: true,
+      usedPlaywrightFallback: false,
+      strategy: 'impit_proxy',
+    };
+  }
+
+  if (!playwrightProxy) {
+    return {
+      result: impitProxyResult,
+      directBlocked: true,
+      usedProxyFallback: true,
+      usedPlaywrightFallback: false,
+      strategy: 'impit_proxy',
+    };
+  }
+
+  const playwrightProxyResult = await playwrightProxy();
+  return {
+    result: playwrightProxyResult,
+    directBlocked: true,
+    usedProxyFallback: true,
+    usedPlaywrightFallback: true,
+    strategy: 'playwright_proxy',
+  };
 }

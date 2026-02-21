@@ -16,7 +16,7 @@ graph TD
     Bot -->|on API fail: amazon-scrape job| Redis
 
     subgraph "Amazon Scraper Service"
-        AS[Crawlee PlaywrightCrawler<br/>+ stealth + proxies]
+        AS[Crawlee Impit HTTP-first<br/>+ proxy fallback<br/>+ Playwright fallback]
     end
 
     subgraph "Ceneo Service"
@@ -56,7 +56,7 @@ graph LR
 |---|---|---|---|
 | bot-service | Node/TS, grammY, BullMQ | ~200MB | Telegram bot, Creators API, scheduler, notifications |
 | redis | Redis 7 | ~64MB | BullMQ job queues |
-| amazon-scraper | Crawlee PlaywrightCrawler + stealth | ~1.5GB | Scrape Amazon.pl product pages |
+| amazon-scraper | Crawlee CheerioCrawler + Impit + Playwright fallback | ~200MB baseline, up to ~1.5GB on fallback | Scrape Amazon.pl product pages |
 | ceneo-service | Crawlee CheerioCrawler + Impit | ~100MB | Verify Amazon prices via Ceneo.pl |
 | postgres | PostgreSQL 16 | ~256MB | Persistent data |
 
@@ -66,9 +66,13 @@ graph LR
 flowchart TD
     Start[price-check job] --> API{Try Creators API}
     API -->|Success| Write[Write price to DB]
-    API -->|Fail / No access| Scrape{Amazon Scraper}
-    Scrape -->|Success| Check{Price drop > 30%?}
-    Scrape -->|Blocked CAPTCHA/403| Ceneo[Ceneo Verify + Admin Alert]
+    API -->|Fail / No access| ImpitDirect[Impit scrape - direct]
+    ImpitDirect -->|Success| Check{Price drop > 30%?}
+    ImpitDirect -->|Blocked| ImpitProxy[Impit scrape - proxy]
+    ImpitProxy -->|Success| Check
+    ImpitProxy -->|Blocked| PwProxy[Playwright scrape - proxy]
+    PwProxy -->|Success| Check
+    PwProxy -->|Blocked| Ceneo[Ceneo Verify + Admin Alert]
     Check -->|No| Write
     Check -->|Yes| Verify[Write as unverified<br/>+ Ceneo Verify<br/>+ Admin Alert]
     Verify --> NotifyCaveat[Notify users with caveat]
@@ -80,7 +84,7 @@ flowchart TD
 
 Priority order:
 1. **Amazon Creators API** - REST call from bot-service (OAuth 2.0, post 10-sale threshold).
-2. **Amazon Scraper** - Playwright + stealth + residential proxies. Primary source during cold-start.
+2. **Amazon Scraper** - Impit without proxy first, then Impit with proxy, then Playwright with proxy.
 3. **Ceneo Verification** - HTTP only. Triggered on Amazon blocks or anomalous drops (>30%).
 
 ## 4. Smart Scheduler
@@ -122,7 +126,13 @@ sequenceDiagram
     else API unavailable
         Bot->>Redis: enqueue amazon-scrape
         Redis->>AS: amazon-scrape job
-        AS->>AS: Playwright scrape
+        AS->>AS: Impit direct scrape
+        alt Blocked
+            AS->>AS: Impit proxy fallback
+            alt Blocked
+                AS->>AS: Playwright proxy fallback
+            end
+        end
         AS->>DB: write price
         alt Success
             AS->>Redis: enqueue price-changed
@@ -191,9 +201,9 @@ price_history
 
 | Layer | Technology |
 |---|---|
-| Language | TypeScript (Node.js 22+) |
+| Language | TypeScript (Node.js 24+) |
 | Telegram bot | grammY |
-| Amazon scraper | Crawlee PlaywrightCrawler + stealth |
+| Amazon scraper | Crawlee CheerioCrawler + Impit + Playwright fallback |
 | Ceneo scraper | Crawlee CheerioCrawler + Impit |
 | Amazon API | Creators API SDK (OAuth 2.0) |
 | Job queue | BullMQ (Redis-backed) |

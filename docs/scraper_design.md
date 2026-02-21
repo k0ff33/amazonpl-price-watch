@@ -3,65 +3,67 @@
 ## 1. Amazon Scraper Service
 
 ### Technical Stack
-- **Framework:** Crawlee (`PlaywrightCrawler`)
-- **Engine:** Playwright (Chromium) + `playwright-extra` + `puppeteer-extra-plugin-stealth`
+- **Frameworks:** Crawlee (`CheerioCrawler` + `PlaywrightCrawler`)
+- **HTTP engine (primary):** Impit (`@crawlee/impit-client`) with browser-like TLS/headers
+- **Browser engine (last fallback):** Playwright Chromium
 - **Proxy Provider:** IPRoyal or Scrapeless (Residential Pay-As-You-Go)
-- **Proxy/Session Management:** Crawlee built-in `ProxyConfiguration` + `SessionPool`
-- **Resource Blocking:** Images, CSS, Fonts, Ads blocked (~150KB per page load)
-- **Container:** Dedicated Coolify service, `mem_limit: 2GB`
+- **Fallback chain:** `Impit direct -> Impit proxy -> Playwright proxy`
+- **Container:** Dedicated Coolify service, `mem_limit: 2GB` (high memory only during Playwright fallback)
 
 ### Scraping Workflow
 
 ```mermaid
 flowchart TD
-    Job[amazon-scrape job from BullMQ] --> Launch[Launch Playwright<br/>headless + stealth]
-    Launch --> Navigate["Navigate to amazon.pl/dp/{ASIN}"]
-    Navigate --> Check{CAPTCHA or 403?}
-    Check -->|Yes| Blocked[Mark job failed<br/>Enqueue ceneo-verify<br/>Alert admin]
-    Check -->|No| Extract[Extract data]
-    Extract --> Price[".a-price-whole + .a-price-fraction"]
-    Extract --> Stock["#availability<br/>W magazynie / Niedostepny"]
-    Extract --> Coupon["Zastosuj kupon selector"]
-    Price --> Drop{Drop > 30%?}
-    Drop -->|Yes| DoubleCheck[Second scrape<br/>fresh IP/context]
-    DoubleCheck --> Confirm{Same price?}
-    Confirm -->|Yes| WriteUnverified[Write to DB as unverified<br/>Enqueue ceneo-verify<br/>Enqueue price-changed<br/>Alert admin]
-    Confirm -->|No| Discard[Discard anomalous reading]
-    Drop -->|No| Write[Write to DB<br/>Enqueue price-changed]
+    Job[amazon-scrape job from BullMQ] --> D1[Impit direct request]
+    D1 --> B1{Blocked?}
+    B1 -->|No| Extract[Extract title/price/stock]
+    B1 -->|Yes| D2[Impit request with PROXY_URL]
+    D2 --> B2{Blocked?}
+    B2 -->|No| Extract
+    B2 -->|Yes| D3[Playwright request with PROXY_URL]
+    D3 --> B3{Blocked?}
+    B3 -->|No| Extract
+    B3 -->|Yes| Blocked[Enqueue ceneo-verify + admin alert]
+    Extract --> Drop{Drop > 30%?}
+    Drop -->|No| Write[Write to DB + enqueue price-changed]
+    Drop -->|Yes| WriteUnverified[Write unverified + enqueue ceneo-verify + enqueue price-changed + admin alert]
 ```
 
-### Verified Selectors (tested 2026-02-17)
+### Block Detection
 
-**Price extraction:**
-- **Primary:** `.a-price-whole` + `.a-price-fraction`
-  - `.a-price-whole` returns `"1 171,"` — contains non-breaking space (thousand separator) and trailing comma. Must strip both.
-  - `.a-price-fraction` returns `"00"` — clean.
-  - Parsing: `whole.replace(/[\s,]/g, '')` + `'.'` + `fraction` → `"1171.00"`
-- **Alternative:** `#corePrice_feature_div .a-price .a-offscreen` returns `"1 171,00zł"` — single element, but only present when buy box exists (null on out-of-stock/third-party-only).
-- **Caution:** `.a-price .a-offscreen` without scoping returns 30+ prices (related products, other sellers). Always scope to `#corePrice_feature_div`.
+- **Hard block:** status `403/503` or `form[action="/errors/validateCaptcha"]`.
+- **Soft block (`200`):** robot-check / automated-access patterns in title/body (for example: `Robot Check`, `verify you are human`, `to discuss automated access to Amazon data`), with missing core product signals.
+
+### Verified Selectors (tested 2026-02-20)
+
+**Price extraction (scoped, shared across Impit + Playwright):**
+- `#corePriceDisplay_desktop_feature_div .a-price .a-offscreen`
+- `#corePrice_feature_div .a-price .a-offscreen`
+- `#corePrice_desktop .a-price .a-offscreen`
+- `#apex_desktop .apex-core-price-identifier .a-price .a-offscreen`
+- `#tp_price_block_total_price_ww .a-offscreen`
+- Fallback: `input#priceValue`
+- Behavior: if none exists, `price = null` (valid for some out-of-stock pages).
 
 **Stock detection:**
-- Do NOT rely on `#availability` text — it contains JavaScript on some pages and text varies widely ("Gotowe do wysyłki w ciągu 1–2 dni", not always "W magazynie").
-- **Recommended approach:**
-  - `isInStock = (#add-to-cart-button exists) OR (#buy-now-button exists)`
-  - `isThirdPartyOnly = (#buybox-see-all-buying-choices exists) AND NOT isInStock`
-  - Third-party-only pages show "Wszystkie opcje zakupu" button and prices from sellers, but no direct buy box.
+- `isInStock = (#add-to-cart-button exists) OR (#buy-now-button exists)`
+- No reliance on `#availability` text due inconsistent/JS-driven content.
 
-**Other selectors:**
-- **Title:** `#productTitle` — verified, works on all page types.
-- **ASIN:** `input[name="ASIN"]` — verified, works on all page types.
-- **CAPTCHA:** `form[action="/errors/validateCaptcha"]` — standard Amazon CAPTCHA form.
+**Title and CAPTCHA selectors:**
+- Title: `#productTitle`
+- CAPTCHA form: `form[action="/errors/validateCaptcha"]`
 
 ### Configuration
-- **Concurrency:** 1 browser instance, sequential scrapes in fresh incognito contexts
+- **Impit concurrency:** 1
+- **Playwright concurrency:** 1 (only when Impit attempts are blocked)
 - **Headers:** `Accept-Language: pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7`
-- **Crawlee SessionPool:** Auto-retires blocked proxies, rotates IPs per session
-- **Crawlee retries:** 3 attempts with backoff before marking job as failed
+- **Playwright resources blocked:** images, stylesheets, fonts, media
+- **Playwright lifecycle:** created only for fallback attempt and torn down immediately after the request
 
 ### Failure Handling
-- BullMQ handles retry logic: 3 attempts with exponential backoff
-- After 3 failures: job moves to dead letter queue + admin Telegram alert
-- Hourly success rate tracked. Alert if <85%
+- If all three strategies block, enqueue `ceneo-verify` (`reason: amazon_blocked`) and alert admin path in bot service.
+- BullMQ handles retry logic / backoff for failed jobs.
+- Blocking and fallback strategy are logged for observability (`impit_direct`, `impit_proxy`, `playwright_proxy`).
 
 ## 2. Ceneo Verification Service
 
@@ -102,12 +104,12 @@ flowchart TD
 
 | Metric | Amazon Scraper | Ceneo Service |
 |---|---|---|
-| Data per check | ~150KB (with blocking) | ~50KB (HTML only) |
-| RAM usage | ~1.5GB (Chromium) | ~100MB (no browser) |
-| Proxy needed | Residential (required) | VPS IP or datacenter (Ceneo is lax) |
+| Data per check | ~50-200KB (Impit, selector-dependent) | ~50KB (HTML only) |
+| RAM usage | ~200MB baseline, up to ~1.5GB during Playwright fallback | ~100MB (no browser) |
+| Proxy needed | Optional for direct Impit, recommended for fallback reliability | VPS IP or datacenter (Ceneo is lax) |
 | Cost per 10k checks | ~$2.25 | ~$0.10 |
 
 ### When Ceneo is Triggered
-1. Amazon scraper blocked (CAPTCHA/403) - fallback data source
+1. Amazon scraper blocked after all strategies (`Impit direct -> Impit proxy -> Playwright proxy`) on hard or soft block signals
 2. Anomalous price drop >30% detected - cross-verification
 3. Admin is notified via Telegram in both cases for manual review
