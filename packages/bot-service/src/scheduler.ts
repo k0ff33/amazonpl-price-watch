@@ -3,24 +3,10 @@ import { ConnectionOptions } from 'bullmq';
 import { lte, asc } from 'drizzle-orm';
 import { Db, products, QUEUES } from '@liskobot/shared';
 import type { AmazonScrapeJob } from '@liskobot/shared';
-
-interface SchedulerInput {
-  price: number;
-  subscriberCount: number;
-  volatilityScore: number;
-}
+export { calculateNextCheckInterval } from '@liskobot/shared';
 
 export function calculatePriority(subscriberCount: number, volatilityScore: number): number {
   return Math.log10(subscriberCount + 1) * (volatilityScore + 0.1);
-}
-
-export function calculateNextCheckInterval(input: SchedulerInput): number {
-  const { price, subscriberCount, volatilityScore } = input;
-
-  if (price < 30) return 24 * 60;
-  if (subscriberCount > 100) return 15;
-  if (volatilityScore > 0.8) return 30;
-  return 240;
 }
 
 export function registerScheduler(connection: ConnectionOptions, db: Db) {

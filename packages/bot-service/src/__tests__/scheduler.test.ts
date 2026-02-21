@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateNextCheckInterval, calculatePriority } from '../scheduler.js';
+import { calculateNextCheckInterval } from '@liskobot/shared';
+import { calculatePriority } from '../scheduler.js';
 
 describe('calculateNextCheckInterval', () => {
   it('returns 24h for cheap items (<30 PLN)', () => {
