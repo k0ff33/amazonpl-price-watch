@@ -28,6 +28,21 @@ Monorepo (pnpm workspaces) deployed via **Coolify** on a single VPS. Five Docker
 *   **Notification safety**: user-facing alerts are sent as plain text (no Telegram Markdown parse mode), preventing formatting/link injection from scraped product titles.
 *   **Runtime hardening**: production Redis requires authentication and all service containers run as non-root (`USER node`).
 
+## Bot Commands
+
+The bot supports both command-based and guided interactions:
+
+- `/help` — show available commands and usage examples
+- `/track <url>` — track an Amazon.pl URL explicitly
+- `/list` — list your watches
+- `/set <ASIN> <price>` — set target price
+- `/pause <ASIN>` — pause watch
+- `/stop <ASIN>` — stop tracking watch
+
+You can also paste an Amazon.pl URL directly. After tracking starts, the bot now sends inline action buttons (set target price, pause, stop, open on Amazon) so users do not need to copy-paste ASIN for common actions.
+
+It also supports lightweight natural shortcuts for the most recently tracked product: `set 199`, `target 199`, `ustaw 199`, `pause`, and `stop`.
+
 ## Local Development
 
 ### Prerequisites
