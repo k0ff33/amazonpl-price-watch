@@ -85,7 +85,7 @@ Then define project/app environment values:
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `REDIS_PASSWORD`
-- `DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/pricewatch`
+- `DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/liskobot`
 - `REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379`
 
 Use the same database and redis URLs in all three app services.

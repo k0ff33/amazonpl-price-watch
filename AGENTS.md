@@ -88,7 +88,7 @@ Migrations run automatically on `bot-service` startup (via `drizzle-orm/postgres
 To generate a new migration after schema changes:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricewatch pnpm db:generate
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/liskobot pnpm db:generate
 ```
 
 ### Build shared first

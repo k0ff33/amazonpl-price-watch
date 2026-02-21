@@ -48,8 +48,8 @@ cp .env.example .env
 docker compose -f docker-compose.dev.yml up -d
 
 # 4. Generate and run database migrations
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricewatch pnpm db:generate
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricewatch pnpm db:migrate
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/liskobot pnpm db:generate
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/liskobot pnpm db:migrate
 
 # 5. Build shared package (required before running services)
 pnpm --filter @liskobot/shared build

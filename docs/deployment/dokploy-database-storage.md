@@ -9,17 +9,16 @@ Goal: keep only Postgres/Redis data on the attached Hetzner volume, while Dokplo
 ```bash
 hcloud volume create \
   --name liskobot-db \
-  --size 100 \
-  --location fsn1 \
+  --size 10 \
   --format ext4 \
-  --server liskobot-prod \
+  --server <server-name> \
   --automount=true
 ```
 
 If volume already exists:
 
 ```bash
-hcloud volume attach --server liskobot-prod --automount=true liskobot-db
+hcloud volume attach --server <server-name> --automount=true liskobot-db
 ```
 
 ## 2. Resolve automount path
@@ -49,7 +48,7 @@ Set Dokploy database storage to bind host paths from the mounted volume:
 
 - Postgres:
   - Host path: `/mnt/HC_Volume_<VOLUME_ID>/liskobot/postgres`
-  - Container path: `/var/lib/postgresql/data`
+  - Container path (Postgres 18): `/var/lib/postgresql`
 - Redis:
   - Host path: `/mnt/HC_Volume_<VOLUME_ID>/liskobot/redis`
   - Container path: `/data`
