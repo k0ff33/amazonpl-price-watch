@@ -1,6 +1,6 @@
 import { Context } from 'grammy';
-import { eq, and } from 'drizzle-orm';
-import { Db, watches } from '@liskobot/shared';
+import { Db } from '@liskobot/shared';
+import { setTargetPriceForWatch } from './chat-actions.js';
 
 export function createSetHandler(db: Db) {
   return async (ctx: Context) => {
@@ -26,19 +26,9 @@ export function createSetHandler(db: Db) {
       return;
     }
 
-    const result = await db
-      .update(watches)
-      .set({ targetPrice: price.toFixed(2) })
-      .where(
-        and(
-          eq(watches.telegramChatId, chatId),
-          eq(watches.ownerUserId, ownerUserId),
-          eq(watches.asin, asin),
-        ),
-      )
-      .returning({ id: watches.id });
+    const updated = await setTargetPriceForWatch(db, chatId, ownerUserId, asin, price);
 
-    if (result.length === 0) {
+    if (!updated) {
       await ctx.reply(`No watch found for ${asin}. Send the Amazon URL first.`);
       return;
     }
