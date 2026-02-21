@@ -20,7 +20,7 @@ When docs and code disagree, trust them in this order:
 
 1. `packages/*/src/**` (actual behavior)
 2. `README.md` (current setup commands)
-3. `docs/*.md` and `docs/plans/*.md` (design intent and history)
+3. `docs/*.md` (design intent and history)
 4. `CLAUDE.md` (assistant-facing guidance)
 
 Notes:
@@ -184,6 +184,7 @@ Files:
 - Use `pnpm` only (no npm/yarn).
 - Prefer editing `src/` files; do not hand-edit `dist/` artifacts.
 - Keep queue names and payload shapes centralized in shared package.
+- After each plan execution, update relevant documentation (`README.md` and/or `docs/*.md`) in the same change.
 - Preserve security behavior:
   - ownership isolation
   - watch quota
@@ -197,12 +198,6 @@ Primary docs:
 - `/Users/kamilwojtczyk/Developer/private/liskobot/docs/requirements.md`
 - `/Users/kamilwojtczyk/Developer/private/liskobot/docs/architecture.md`
 - `/Users/kamilwojtczyk/Developer/private/liskobot/docs/scraper_design.md`
-
-Design/plan history:
-- `/Users/kamilwojtczyk/Developer/private/liskobot/docs/plans/2026-02-17-architecture-design.md`
-- `/Users/kamilwojtczyk/Developer/private/liskobot/docs/plans/2026-02-17-deployment-design.md`
-- `/Users/kamilwojtczyk/Developer/private/liskobot/docs/plans/2026-02-17-implementation-plan.md`
-- `/Users/kamilwojtczyk/Developer/private/liskobot/docs/plans/2026-02-17-security-hardening-plan.md`
 
 Agent guidance:
 - `/Users/kamilwojtczyk/Developer/private/liskobot/CLAUDE.md`

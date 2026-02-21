@@ -135,5 +135,3 @@ Access panel through SSH tunnel (`ssh -L 3000:localhost:3000 deploy@<tailscale-h
 *   [Architecture](docs/architecture.md)
 *   [Scraper Design](docs/scraper_design.md)
 *   [Hetzner Dokploy Deployment](docs/deployment/hetzner-dokploy.md)
-*   [Implementation Plan](docs/plans/2026-02-17-implementation-plan.md)
-*   [Security Hardening Plan](docs/plans/2026-02-17-security-hardening-plan.md)
