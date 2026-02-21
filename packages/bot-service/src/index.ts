@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { Worker } from 'bullmq';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import { Redis } from 'ioredis';
 import { createBot } from './bot.js';
 import { createDb, parseRedisUrl, QUEUES } from '@liskobot/shared';
 import type { NotifyUserJob } from '@liskobot/shared';
@@ -19,8 +20,9 @@ async function main() {
   console.log('Migrations complete');
 
   const connection = parseRedisUrl(config.redisUrl);
+  const redis = new Redis(config.redisUrl, { maxRetriesPerRequest: null });
 
-  const bot = createBot(config.telegramBotToken, db);
+  const bot = createBot(config.telegramBotToken, db, redis);
 
   await bot.api.setMyCommands([
     { command: 'help', description: 'Show available commands' },
@@ -30,7 +32,6 @@ async function main() {
     { command: 'pause', description: 'Pause a watch' },
     { command: 'stop', description: 'Stop tracking a watch' },
   ]);
-
 
   // Register BullMQ workers
   const { worker: schedulerWorker } = registerScheduler(connection, db);

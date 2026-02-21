@@ -1,75 +1,51 @@
-const STATE_TTL_MS = 30 * 60 * 1000;
+import type { Redis } from 'ioredis';
 
-type UserInteractionState = {
-  pendingTargetAsin?: string;
-  lastTrackedAsin?: string;
-  expiresAt: number;
-};
-
-const interactionState = new Map<string, UserInteractionState>();
+const STATE_TTL_SECONDS = 30 * 60;
 
 function key(chatId: number, ownerUserId: number) {
-  return `${chatId}:${ownerUserId}`;
+  return `interaction:${chatId}:${ownerUserId}`;
 }
 
-function getOrCreateState(chatId: number, ownerUserId: number) {
-  const stateKey = key(chatId, ownerUserId);
-  const current = interactionState.get(stateKey);
+export type InteractionState = {
+  setPendingTargetPrice(chatId: number, ownerUserId: number, asin: string): Promise<void>;
+  getPendingTargetPrice(chatId: number, ownerUserId: number): Promise<string | null>;
+  clearPendingAction(chatId: number, ownerUserId: number): Promise<void>;
+  setLastTrackedAsin(chatId: number, ownerUserId: number, asin: string): Promise<void>;
+  getLastTrackedAsin(chatId: number, ownerUserId: number): Promise<string | null>;
+};
 
-  if (current && current.expiresAt >= Date.now()) {
-    return current;
-  }
+export function createInteractionState(redis: Redis): InteractionState {
+  return {
+    async setPendingTargetPrice(chatId, ownerUserId, asin) {
+      const k = key(chatId, ownerUserId);
+      await redis.hset(k, 'pendingTargetAsin', asin, 'lastTrackedAsin', asin);
+      await redis.expire(k, STATE_TTL_SECONDS);
+    },
 
-  const created: UserInteractionState = { expiresAt: Date.now() + STATE_TTL_MS };
-  interactionState.set(stateKey, created);
-  return created;
-}
+    async getPendingTargetPrice(chatId, ownerUserId) {
+      const k = key(chatId, ownerUserId);
+      const asin = await redis.hget(k, 'pendingTargetAsin');
+      if (asin) await redis.expire(k, STATE_TTL_SECONDS);
+      return asin ?? null;
+    },
 
-function getValidState(chatId: number, ownerUserId: number): UserInteractionState | null {
-  const stateKey = key(chatId, ownerUserId);
-  const state = interactionState.get(stateKey);
-  if (!state) return null;
-  if (state.expiresAt < Date.now()) {
-    interactionState.delete(stateKey);
-    return null;
-  }
-  return state;
-}
+    async clearPendingAction(chatId, ownerUserId) {
+      const k = key(chatId, ownerUserId);
+      await redis.hdel(k, 'pendingTargetAsin');
+      await redis.expire(k, STATE_TTL_SECONDS);
+    },
 
-function touch(state: UserInteractionState) {
-  state.expiresAt = Date.now() + STATE_TTL_MS;
-}
+    async setLastTrackedAsin(chatId, ownerUserId, asin) {
+      const k = key(chatId, ownerUserId);
+      await redis.hset(k, 'lastTrackedAsin', asin);
+      await redis.expire(k, STATE_TTL_SECONDS);
+    },
 
-export function setPendingTargetPrice(chatId: number, ownerUserId: number, asin: string) {
-  const state = getOrCreateState(chatId, ownerUserId);
-  state.pendingTargetAsin = asin;
-  state.lastTrackedAsin = asin;
-  touch(state);
-}
-
-export function getPendingTargetPrice(chatId: number, ownerUserId: number): string | null {
-  const state = getValidState(chatId, ownerUserId);
-  if (!state?.pendingTargetAsin) return null;
-  touch(state);
-  return state.pendingTargetAsin;
-}
-
-export function clearPendingAction(chatId: number, ownerUserId: number) {
-  const state = getValidState(chatId, ownerUserId);
-  if (!state) return;
-  delete state.pendingTargetAsin;
-  touch(state);
-}
-
-export function setLastTrackedAsin(chatId: number, ownerUserId: number, asin: string) {
-  const state = getOrCreateState(chatId, ownerUserId);
-  state.lastTrackedAsin = asin;
-  touch(state);
-}
-
-export function getLastTrackedAsin(chatId: number, ownerUserId: number): string | null {
-  const state = getValidState(chatId, ownerUserId);
-  if (!state?.lastTrackedAsin) return null;
-  touch(state);
-  return state.lastTrackedAsin;
+    async getLastTrackedAsin(chatId, ownerUserId) {
+      const k = key(chatId, ownerUserId);
+      const asin = await redis.hget(k, 'lastTrackedAsin');
+      if (asin) await redis.expire(k, STATE_TTL_SECONDS);
+      return asin ?? null;
+    },
+  };
 }

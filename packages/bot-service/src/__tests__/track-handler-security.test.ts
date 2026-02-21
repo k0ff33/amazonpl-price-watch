@@ -1,6 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createTrackHandler } from '../handlers/track.js';
+import type { InteractionState } from '../interaction-state.js';
 import { products, watches } from '@liskobot/shared';
+
+const noopState: InteractionState = {
+  async setPendingTargetPrice() {},
+  async getPendingTargetPrice() { return null; },
+  async clearPendingAction() {},
+  async setLastTrackedAsin() {},
+  async getLastTrackedAsin() { return null; },
+};
 
 function createContext(overrides: Partial<any> = {}) {
   const replies: string[] = [];
@@ -64,7 +73,7 @@ describe('createTrackHandler security behavior', () => {
     });
 
     const ctx = createContext();
-    const handler = createTrackHandler(db);
+    const handler = createTrackHandler(db, noopState);
 
     await handler(ctx);
 
@@ -82,7 +91,7 @@ describe('createTrackHandler security behavior', () => {
     });
 
     const ctx = createContext();
-    const handler = createTrackHandler(db);
+    const handler = createTrackHandler(db, noopState);
 
     await handler(ctx);
 
@@ -112,7 +121,7 @@ describe('createTrackHandler security behavior', () => {
       const ctx = createContext({
         message: { text: 'https://amzn.eu/d/0cGtXgio' },
       });
-      const handler = createTrackHandler(db);
+      const handler = createTrackHandler(db, noopState);
 
       await handler(ctx);
 

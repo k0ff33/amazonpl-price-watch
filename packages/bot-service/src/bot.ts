@@ -1,4 +1,5 @@
 import { Bot } from 'grammy';
+import type { Redis } from 'ioredis';
 import { Db } from '@liskobot/shared';
 import { createTrackHandler } from './handlers/track.js';
 import { createListHandler } from './handlers/list.js';
@@ -7,12 +8,14 @@ import { createStopHandler } from './handlers/stop.js';
 import { createSetHandler } from './handlers/set.js';
 import { createHelpHandler } from './handlers/help.js';
 import { createCallbackQueryHandler, createNaturalInputHandler, createPendingPriceHandler } from './handlers/interactive.js';
+import { createInteractionState } from './interaction-state.js';
 
-export function createBot(token: string, db: Db) {
+export function createBot(token: string, db: Db, redis: Redis) {
   const bot = new Bot(token);
-  const trackHandler = createTrackHandler(db);
-  const pendingPriceHandler = createPendingPriceHandler(db);
-  const naturalInputHandler = createNaturalInputHandler(db);
+  const state = createInteractionState(redis);
+  const trackHandler = createTrackHandler(db, state);
+  const pendingPriceHandler = createPendingPriceHandler(db, state);
+  const naturalInputHandler = createNaturalInputHandler(db, state);
 
   bot.command('start', (ctx) =>
     ctx.reply('Send me an Amazon.pl product URL and I\'ll track the price for you. Type /help for commands.')
@@ -25,7 +28,7 @@ export function createBot(token: string, db: Db) {
   bot.command('stop', createStopHandler(db));
   bot.command('set', createSetHandler(db));
 
-  bot.on('callback_query:data', createCallbackQueryHandler(db));
+  bot.on('callback_query:data', createCallbackQueryHandler(db, state));
 
   bot.on('message:text', async (ctx) => {
     const handledPendingPrice = await pendingPriceHandler(ctx);
