@@ -37,12 +37,22 @@ export async function scrapeWithFallback({
   }
 
   if (!impitProxy) {
+    if (!playwrightProxy) {
+      return {
+        result: directResult,
+        directBlocked,
+        usedProxyFallback: false,
+        usedPlaywrightFallback: false,
+        strategy: 'impit_direct',
+      };
+    }
+    const playwrightResult = await playwrightProxy();
     return {
-      result: directResult,
+      result: playwrightResult,
       directBlocked,
       usedProxyFallback: false,
-      usedPlaywrightFallback: false,
-      strategy: 'impit_direct',
+      usedPlaywrightFallback: true,
+      strategy: 'playwright_proxy',
     };
   }
 
