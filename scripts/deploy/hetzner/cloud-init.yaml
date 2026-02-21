@@ -1,0 +1,63 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+users:
+  - default
+  - name: __ADMIN_USERNAME__
+    gecos: Deploy Administrator
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    passwd: "__ADMIN_CONSOLE_PASSWORD_HASH__"
+    ssh_authorized_keys:
+      - __ADMIN_SSH_PUBLIC_KEY__
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-hardening.conf
+    owner: root:root
+    permissions: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      ChallengeResponseAuthentication no
+      PubkeyAuthentication yes
+
+  - path: /etc/fail2ban/jail.d/sshd.local
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [sshd]
+      enabled = true
+      maxretry = 5
+      findtime = 10m
+      bantime = 1h
+
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root:root
+    permissions: '0644'
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+runcmd:
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl ufw fail2ban unattended-upgrades
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - tailscale up --auth-key "__TAILSCALE_AUTH_KEY__" --hostname "__TAILSCALE_HOSTNAME__" --ssh=false
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow in on tailscale0 to any port 22 proto tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+  - systemctl enable --now fail2ban
+  - systemctl restart ssh
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker __ADMIN_USERNAME__
+  - curl -fsSL https://dokploy.com/install.sh | sh
+
+final_message: |
+  Cloud-init complete. Dokploy is installed; SSH access is via Tailscale.
