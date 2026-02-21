@@ -2,6 +2,9 @@
 
 **Liskobot** (liskobot.pl) is a "Lisek chytrusek" (sly fox) price and stock tracker for Amazon.pl. It helps users find the best deals and historical lows, notifying them via Telegram when the hunt is successful.
 
+The bot accepts both direct `amazon.pl` product URLs and `amzn.eu` short links (resolved to an Amazon.pl ASIN).
+`amzn.eu` links are resolved via redirect headers to reduce failures caused by bot-detection landing pages.
+
 ## Architecture
 
 Monorepo (pnpm workspaces) deployed via **Coolify** on a single VPS. Five Docker containers:

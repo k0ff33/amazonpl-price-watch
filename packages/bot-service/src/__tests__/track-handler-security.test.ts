@@ -16,7 +16,10 @@ function createContext(overrides: Partial<any> = {}) {
   } as any;
 }
 
-function createDbDouble(input: { activeWatchCount: number; watchInsertResult?: Array<{ id: string }> }) {
+function createDbDouble(input: {
+  activeWatchCount: number;
+  watchInsertResult?: Array<{ id: string }>;
+}) {
   const insertedWatchValues: any[] = [];
 
   const db = {
@@ -32,13 +35,15 @@ function createDbDouble(input: { activeWatchCount: number; watchInsertResult?: A
         }
 
         return {
-          onConflictDoNothing: vi.fn(() => (
+          onConflictDoNothing: vi.fn(() =>
             table === watches
               ? {
-                  returning: vi.fn(async () => input.watchInsertResult ?? [{ id: 'watch-1' }]),
+                  returning: vi.fn(
+                    async () => input.watchInsertResult ?? [{ id: 'watch-1' }],
+                  ),
                 }
-              : []
-          )),
+              : [],
+          ),
         };
       }),
     })),
@@ -84,5 +89,43 @@ describe('createTrackHandler security behavior', () => {
     expect(insertedWatchValues).toHaveLength(0);
     expect(ctx.reply).toHaveBeenCalled();
     expect(ctx.__replies.join('\n')).toMatch(/limit|quota|max/i);
+  });
+
+  it('resolves amzn.eu short links before storing watch', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => ({
+      status: 301,
+      url: 'https://amzn.eu/d/0cGtXgio',
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === 'location'
+            ? 'https://www.amazon.pl/dp/B0DEXAMPLE'
+            : null,
+      },
+    })) as any;
+
+    try {
+      const { db, insertedWatchValues } = createDbDouble({
+        activeWatchCount: 0,
+      });
+
+      const ctx = createContext({
+        message: { text: 'https://amzn.eu/d/0cGtXgio' },
+      });
+      const handler = createTrackHandler(db);
+
+      await handler(ctx);
+
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        'https://amzn.eu/d/0cGtXgio',
+        expect.objectContaining({ redirect: 'manual' }),
+      );
+      expect(insertedWatchValues).toHaveLength(1);
+      expect(insertedWatchValues[0]).toMatchObject({
+        asin: 'B0DEXAMPLE',
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

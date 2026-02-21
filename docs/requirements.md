@@ -4,7 +4,7 @@
 A commission-only SaaS tracking Amazon.pl prices and stock. Users are notified via Telegram when their target price is met or an item hits a historical low. Revenue is generated through Amazon Associates affiliate links.
 
 ## 2. Functional Requirements
-- **Input:** URL paste (Amazon.pl) via Telegram Bot.
+- **Input:** URL paste (`amazon.pl` product links and `amzn.eu` short links) via Telegram Bot.
 - **Tracking:**
   - Price (Target Price & Percentage Drop).
   - Stock Status (Notify only when In Stock).
