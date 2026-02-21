@@ -211,7 +211,7 @@ describe('scrapeWithFallback', () => {
     expect(playwrightProxy).toHaveBeenCalledTimes(1);
   });
 
-  it('returns direct no-price result when no proxy is configured', async () => {
+  it('returns direct no-price result when neither proxy nor Playwright is configured', async () => {
     const impitDirect = vi.fn(async (): Promise<ScrapeResult> => ({
       price: null,
       isInStock: false,
@@ -226,6 +226,54 @@ describe('scrapeWithFallback', () => {
     expect(output.usedProxyFallback).toBe(false);
     expect(output.usedPlaywrightFallback).toBe(false);
     expect(impitDirect).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips to Playwright when direct returns no price and no proxy is configured', async () => {
+    // Production topology: PROXY_URL unset → impitProxy undefined, playwrightProxy always provided
+    const impitDirect = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: null,
+      isInStock: true,
+      title: 'Some Product',
+    }));
+    const playwrightProxy = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: '349.00',
+      isInStock: true,
+      title: 'Some Product',
+    }));
+
+    const output = await scrapeWithFallback({ impitDirect, playwrightProxy });
+
+    expect(output.result.price).toBe('349.00');
+    expect(output.strategy).toBe('playwright_proxy');
+    expect(output.directBlocked).toBe(false);
+    expect(output.usedProxyFallback).toBe(false);
+    expect(output.usedPlaywrightFallback).toBe(true);
+    expect(impitDirect).toHaveBeenCalledTimes(1);
+    expect(playwrightProxy).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips to Playwright when direct is blocked and no proxy is configured', async () => {
+    const impitDirect = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: null,
+      isInStock: false,
+      title: null,
+      blocked: true,
+    }));
+    const playwrightProxy = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: '349.00',
+      isInStock: true,
+      title: 'Some Product',
+    }));
+
+    const output = await scrapeWithFallback({ impitDirect, playwrightProxy });
+
+    expect(output.result.price).toBe('349.00');
+    expect(output.strategy).toBe('playwright_proxy');
+    expect(output.directBlocked).toBe(true);
+    expect(output.usedProxyFallback).toBe(false);
+    expect(output.usedPlaywrightFallback).toBe(true);
+    expect(impitDirect).toHaveBeenCalledTimes(1);
+    expect(playwrightProxy).toHaveBeenCalledTimes(1);
   });
 
   it('returns proxy no-price result when proxy succeeds but price is missing and Playwright is not configured', async () => {
