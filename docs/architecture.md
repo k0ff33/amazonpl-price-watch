@@ -91,6 +91,8 @@ Priority order:
 
 BullMQ repeatable job fires every minute. Bot-service queries due products and dispatches jobs.
 
+`next_check_at` is advanced after every Amazon scrape attempt (price found, no price, or blocked). This prevents minute-by-minute requeue loops for unavailable or blocked products.
+
 ### Priority Formula
 ```
 priority = log10(subscriber_count + 1) * volatility_factor

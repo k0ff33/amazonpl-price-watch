@@ -8,6 +8,7 @@ import { scrapeAmazonWithPlaywright } from './crawler.js';
 import { scrapeAmazonWithImpit } from './impit-scraper.js';
 import { analyzePriceChange } from './price-processor.js';
 import { scrapeWithFallback } from './scrape-with-fallback.js';
+import { calculateNextCheckAtAfterScrape } from './next-check.js';
 
 async function main() {
   const db = createDb(config.databaseUrl);
@@ -48,6 +49,23 @@ async function main() {
           where: eq(products.asin, asin),
         });
         if (product) {
+          const now = new Date();
+          const nextCheckAt = calculateNextCheckAtAfterScrape({
+            scrapedPrice: null,
+            currentPrice: product.currentPrice ?? null,
+            subscriberCount: product.subscriberCount,
+            volatilityScore: product.volatilityScore,
+            now,
+          });
+
+          await db
+            .update(products)
+            .set({
+              lastScrapedAt: now,
+              nextCheckAt,
+            })
+            .where(eq(products.asin, asin));
+
           await ceneoVerifyQueue.add('ceneo-verify', {
             asin,
             title: product.title,
@@ -73,13 +91,23 @@ async function main() {
       const oldPrice = product.currentPrice ?? null;
       const newPrice = scrapeResult.price;
 
-      // If we couldn't extract a price, just update lastScrapedAt
+      // If we couldn't extract a price, update metadata and advance the next check.
       if (!newPrice) {
+        const now = new Date();
+        const nextCheckAt = calculateNextCheckAtAfterScrape({
+          scrapedPrice: null,
+          currentPrice: oldPrice,
+          subscriberCount: product.subscriberCount,
+          volatilityScore: product.volatilityScore,
+          now,
+        });
+
         await db
           .update(products)
           .set({
             isInStock: scrapeResult.isInStock,
-            lastScrapedAt: new Date(),
+            lastScrapedAt: now,
+            nextCheckAt,
             ...(scrapeResult.title && { title: scrapeResult.title }),
           })
           .where(eq(products.asin, asin));
@@ -92,6 +120,14 @@ async function main() {
 
       // Compute new historical low
       const newHistoricalLow = change.isHistoricalLow ? newPrice : (product.historicalLow ?? newPrice);
+      const now = new Date();
+      const nextCheckAt = calculateNextCheckAtAfterScrape({
+        scrapedPrice: newPrice,
+        currentPrice: oldPrice,
+        subscriberCount: product.subscriberCount,
+        volatilityScore: product.volatilityScore,
+        now,
+      });
 
       // Update products table
       await db
@@ -100,7 +136,8 @@ async function main() {
           currentPrice: newPrice,
           historicalLow: newHistoricalLow,
           isInStock: scrapeResult.isInStock,
-          lastScrapedAt: new Date(),
+          lastScrapedAt: now,
+          nextCheckAt,
           ...(scrapeResult.title && { title: scrapeResult.title }),
         })
         .where(eq(products.asin, asin));
