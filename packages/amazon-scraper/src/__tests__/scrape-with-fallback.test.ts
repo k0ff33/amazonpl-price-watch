@@ -152,4 +152,102 @@ describe('scrapeWithFallback', () => {
     expect(impitDirect).toHaveBeenCalledTimes(1);
     expect(impitProxy).toHaveBeenCalledTimes(1);
   });
+
+  it('escalates to Impit-proxy when direct succeeds but returns no price', async () => {
+    const impitDirect = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: null,
+      isInStock: true,
+      title: 'Some Product',
+    }));
+    const impitProxy = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: '499.00',
+      isInStock: true,
+      title: 'Some Product',
+    }));
+    const playwrightProxy = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: '399.00',
+      isInStock: true,
+      title: 'Some Product',
+    }));
+
+    const output = await scrapeWithFallback({ impitDirect, impitProxy, playwrightProxy });
+
+    expect(output.result.price).toBe('499.00');
+    expect(output.strategy).toBe('impit_proxy');
+    expect(output.directBlocked).toBe(false);
+    expect(output.usedProxyFallback).toBe(true);
+    expect(output.usedPlaywrightFallback).toBe(false);
+    expect(impitDirect).toHaveBeenCalledTimes(1);
+    expect(impitProxy).toHaveBeenCalledTimes(1);
+    expect(playwrightProxy).not.toHaveBeenCalled();
+  });
+
+  it('escalates to Playwright when direct and proxy both succeed but return no price', async () => {
+    const impitDirect = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: null,
+      isInStock: true,
+      title: 'Some Product',
+    }));
+    const impitProxy = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: null,
+      isInStock: true,
+      title: 'Some Product',
+    }));
+    const playwrightProxy = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: '599.00',
+      isInStock: true,
+      title: 'Some Product',
+    }));
+
+    const output = await scrapeWithFallback({ impitDirect, impitProxy, playwrightProxy });
+
+    expect(output.result.price).toBe('599.00');
+    expect(output.strategy).toBe('playwright_proxy');
+    expect(output.directBlocked).toBe(false);
+    expect(output.usedProxyFallback).toBe(true);
+    expect(output.usedPlaywrightFallback).toBe(true);
+    expect(impitDirect).toHaveBeenCalledTimes(1);
+    expect(impitProxy).toHaveBeenCalledTimes(1);
+    expect(playwrightProxy).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns direct no-price result when no proxy is configured', async () => {
+    const impitDirect = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: null,
+      isInStock: false,
+      title: 'Some Product',
+    }));
+
+    const output = await scrapeWithFallback({ impitDirect });
+
+    expect(output.result.price).toBeNull();
+    expect(output.strategy).toBe('impit_direct');
+    expect(output.directBlocked).toBe(false);
+    expect(output.usedProxyFallback).toBe(false);
+    expect(output.usedPlaywrightFallback).toBe(false);
+    expect(impitDirect).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns proxy no-price result when proxy succeeds but price is missing and Playwright is not configured', async () => {
+    const impitDirect = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: null,
+      isInStock: false,
+      title: 'Some Product',
+    }));
+    const impitProxy = vi.fn(async (): Promise<ScrapeResult> => ({
+      price: null,
+      isInStock: false,
+      title: 'Some Product',
+    }));
+
+    const output = await scrapeWithFallback({ impitDirect, impitProxy });
+
+    expect(output.result.price).toBeNull();
+    expect(output.strategy).toBe('impit_proxy');
+    expect(output.directBlocked).toBe(false);
+    expect(output.usedProxyFallback).toBe(true);
+    expect(output.usedPlaywrightFallback).toBe(false);
+    expect(impitDirect).toHaveBeenCalledTimes(1);
+    expect(impitProxy).toHaveBeenCalledTimes(1);
+  });
 });

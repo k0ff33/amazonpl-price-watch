@@ -14,6 +14,10 @@ interface ScrapeWithFallbackOutput {
   strategy: 'impit_direct' | 'impit_proxy' | 'playwright_proxy';
 }
 
+function needsFallback(result: ScrapeResult): boolean {
+  return Boolean(result.blocked) || result.price === null;
+}
+
 export async function scrapeWithFallback({
   impitDirect,
   impitProxy,
@@ -22,7 +26,7 @@ export async function scrapeWithFallback({
   const directResult = await impitDirect();
   const directBlocked = Boolean(directResult.blocked);
 
-  if (!directBlocked) {
+  if (!needsFallback(directResult)) {
     return {
       result: directResult,
       directBlocked: false,
@@ -35,7 +39,7 @@ export async function scrapeWithFallback({
   if (!impitProxy) {
     return {
       result: directResult,
-      directBlocked: true,
+      directBlocked,
       usedProxyFallback: false,
       usedPlaywrightFallback: false,
       strategy: 'impit_direct',
@@ -43,10 +47,10 @@ export async function scrapeWithFallback({
   }
 
   const impitProxyResult = await impitProxy();
-  if (!impitProxyResult.blocked) {
+  if (!needsFallback(impitProxyResult)) {
     return {
       result: impitProxyResult,
-      directBlocked: true,
+      directBlocked,
       usedProxyFallback: true,
       usedPlaywrightFallback: false,
       strategy: 'impit_proxy',
@@ -56,7 +60,7 @@ export async function scrapeWithFallback({
   if (!playwrightProxy) {
     return {
       result: impitProxyResult,
-      directBlocked: true,
+      directBlocked,
       usedProxyFallback: true,
       usedPlaywrightFallback: false,
       strategy: 'impit_proxy',
@@ -66,7 +70,7 @@ export async function scrapeWithFallback({
   const playwrightProxyResult = await playwrightProxy();
   return {
     result: playwrightProxyResult,
-    directBlocked: true,
+    directBlocked,
     usedProxyFallback: true,
     usedPlaywrightFallback: true,
     strategy: 'playwright_proxy',
