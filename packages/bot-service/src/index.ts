@@ -9,6 +9,7 @@ import { config } from './config.js';
 import { registerScheduler } from './scheduler.js';
 import { registerPriceChangedHandler } from './handlers/price-changed.js';
 import { registerCeneoResultHandler } from './handlers/ceneo-result.js';
+import { createShutdownHandler } from './shutdown.js';
 
 async function main() {
   const db = createDb(config.databaseUrl);
@@ -22,9 +23,9 @@ async function main() {
   const bot = createBot(config.telegramBotToken, db);
 
   // Register BullMQ workers
-  registerScheduler(connection, db);
-  registerPriceChangedHandler(connection, db, config.adminChatId, config.amazonAssociateTag);
-  registerCeneoResultHandler(connection, db, config.adminChatId);
+  const { worker: schedulerWorker } = registerScheduler(connection, db);
+  const { worker: priceChangedWorker } = registerPriceChangedHandler(connection, db, config.adminChatId, config.amazonAssociateTag);
+  const { worker: ceneoResultWorker } = registerCeneoResultHandler(connection, db, config.adminChatId);
 
   // Notify-user worker: sends Telegram messages
   const notifyWorker = new Worker<NotifyUserJob>(
@@ -49,6 +50,15 @@ async function main() {
       res.end();
     }
   }).listen(3000);
+
+  const shutdown = createShutdownHandler(bot, [
+    schedulerWorker,
+    priceChangedWorker,
+    ceneoResultWorker,
+    notifyWorker,
+  ]);
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
 
   await bot.start();
   console.log('Bot service started');
