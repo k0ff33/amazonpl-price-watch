@@ -62,7 +62,7 @@ git commit -m "test: add deployment script harness"
 **Files:**
 - Create: `scripts/deploy/hetzner/create-vps.sh`
 - Create: `scripts/deploy/hetzner/.env.example`
-- Create: `scripts/deploy/hetzner/cloud-init.yaml.tmpl`
+- Create: `scripts/deploy/hetzner/cloud-init.yaml`
 - Modify: `scripts/deploy/hetzner/tests/test-create-vps.sh`
 - Modify: `scripts/deploy/hetzner/tests/test-cloud-init-template.sh`
 
@@ -101,7 +101,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add scripts/deploy/hetzner/create-vps.sh scripts/deploy/hetzner/cloud-init.yaml.tmpl scripts/deploy/hetzner/.env.example scripts/deploy/hetzner/tests
+git add scripts/deploy/hetzner/create-vps.sh scripts/deploy/hetzner/cloud-init.yaml scripts/deploy/hetzner/.env.example scripts/deploy/hetzner/tests
 git commit -m "feat: add secure hetzner dokploy provisioner"
 ```
 

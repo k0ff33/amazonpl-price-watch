@@ -105,9 +105,35 @@ docker compose up -d --build
 docker compose build
 ```
 
+### Provisioning (Hetzner + Dokploy)
+
+For a secure single-VPS bootstrap with Dokploy, use the deployment scripts:
+
+```bash
+# Configure variables first
+cp scripts/deploy/hetzner/.env.example scripts/deploy/hetzner/.env
+# Required vars: HCLOUD_SERVER_NAME, HCLOUD_SSH_KEY_NAME, TAILSCALE_AUTH_KEY, ADMIN_CONSOLE_PASSWORD
+
+# Preview actions (no resources created)
+scripts/deploy/hetzner/create-vps.sh --dry-run
+
+# Create and bootstrap server
+scripts/deploy/hetzner/create-vps.sh
+
+# Verify host hardening
+scripts/deploy/hetzner/check-security.sh <tailscale-hostname-or-ip> deploy <server-name>
+```
+
+Security defaults:
+- SSH is Tailscale-only (public `22/tcp` is not opened).
+- Dokploy panel is accessed via SSH tunnel.
+
+Access panel through SSH tunnel (`ssh -L 3000:localhost:3000 deploy@<tailscale-hostname-or-ip>`).
+
 ## Documentation
 
 *   [Architecture](docs/architecture.md)
 *   [Scraper Design](docs/scraper_design.md)
+*   [Hetzner Dokploy Deployment](docs/deployment/hetzner-dokploy.md)
 *   [Implementation Plan](docs/plans/2026-02-17-implementation-plan.md)
 *   [Security Hardening Plan](docs/plans/2026-02-17-security-hardening-plan.md)

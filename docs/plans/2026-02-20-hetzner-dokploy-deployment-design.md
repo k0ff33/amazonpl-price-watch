@@ -30,7 +30,7 @@ The server boots with cloud-init that applies a security baseline and installs D
 
 - `scripts/deploy/hetzner/create-vps.sh`: idempotent provisioner
 - `scripts/deploy/hetzner/check-security.sh`: post-provision validation
-- `scripts/deploy/hetzner/cloud-init.yaml.tmpl`: cloud-init template
+- `scripts/deploy/hetzner/cloud-init.yaml`: cloud-init template
 - `scripts/deploy/hetzner/.env.example`: required configuration template
 - `docs/deployment/hetzner-dokploy.md`: operational runbook
 
