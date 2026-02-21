@@ -63,6 +63,12 @@ Open `http://localhost:3000`.
 scripts/deploy/hetzner/check-security.sh <tailscale-hostname-or-ip> deploy <server-name>
 ```
 
+## 6.5 Optional: attach dedicated Hetzner volume for DB data only
+
+If you want Postgres/Redis persistence on a separate Hetzner disk (recommended), complete:
+
+- `docs/deployment/dokploy-database-storage.md`
+
 ## 7. Deploy Services Independently In Dokploy (GitOps)
 
 This repository is a `pnpm` monorepo. Each app must build from repository root context.
@@ -154,3 +160,7 @@ If only workers are needed (no public HTTP), keep them internal and skip domain 
 4. Deploy `amazon-scraper`.
 5. Deploy `ceneo-service`.
 6. Verify logs and `/health` checks.
+
+For persistent database storage and backup/restore workflow, see:
+
+- `docs/deployment/dokploy-database-storage.md`

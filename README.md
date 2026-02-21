@@ -149,3 +149,4 @@ Do not combine `Build Path=packages/<service>` with `Docker File=packages/<servi
 *   [Architecture](docs/architecture.md)
 *   [Scraper Design](docs/scraper_design.md)
 *   [Hetzner Dokploy Deployment](docs/deployment/hetzner-dokploy.md)
+*   [Dokploy Database Storage](docs/deployment/dokploy-database-storage.md)
