@@ -9,14 +9,14 @@ Monorepo (pnpm workspaces) deployed via **Coolify** on a single VPS. Five Docker
 *   **`bot-service`** — Telegram bot (grammY), job orchestration, smart scheduler, and notification fan-out.
 *   **`amazon-scraper`** — Crawlee Impit-first scraper with proxy and Playwright fallback chain.
 *   **`ceneo-service`** — Crawlee CheerioCrawler + Impit for price verification via Ceneo.pl.
-*   **`postgres`** — PostgreSQL 16 for persistent data.
+*   **`postgres`** — PostgreSQL 18 for persistent data.
 *   **`redis`** — Redis 7 for BullMQ job queues.
 
 ## Tech Stack
 
 *   **Runtime**: Node.js 24 LTS, TypeScript
 *   **Core**: grammY, Crawlee, Drizzle ORM, BullMQ
-*   **Infra**: Docker, PostgreSQL 16, Redis 7
+*   **Infra**: Docker, PostgreSQL 18, Redis 7
 
 ## Security Model
 

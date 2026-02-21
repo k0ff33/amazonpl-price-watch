@@ -77,7 +77,7 @@ This repository is a `pnpm` monorepo. Each app must build from repository root c
 
 In one Dokploy project, create:
 
-- PostgreSQL 16 service (name it `postgres`)
+- PostgreSQL 18 service (name it `postgres`)
 - Redis 7 service (name it `redis`, enable password)
 
 Then define project/app environment values:
