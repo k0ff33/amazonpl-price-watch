@@ -116,7 +116,38 @@ Service-specific Dockerfile:
 
 Important: do not set `Build Path=packages/<service>` together with `Dockerfile=packages/<service>/Dockerfile` or Dokploy will resolve invalid nested paths.
 
-### 7.3 Environment variables per app
+### 7.3 Watch paths (recommended)
+
+Set Dokploy `Watch Paths` per app to avoid redeploying unrelated services.
+
+`bot-service` watch paths:
+
+- `packages/bot-service/**`
+- `packages/shared/**`
+- `pnpm-lock.yaml`
+- `pnpm-workspace.yaml`
+- `package.json`
+- `tsconfig.base.json`
+
+`amazon-scraper` watch paths:
+
+- `packages/amazon-scraper/**`
+- `packages/shared/**`
+- `pnpm-lock.yaml`
+- `pnpm-workspace.yaml`
+- `package.json`
+- `tsconfig.base.json`
+
+`ceneo-service` watch paths:
+
+- `packages/ceneo-service/**`
+- `packages/shared/**`
+- `pnpm-lock.yaml`
+- `pnpm-workspace.yaml`
+- `package.json`
+- `tsconfig.base.json`
+
+### 7.4 Environment variables per app
 
 `bot-service`:
 
@@ -137,7 +168,7 @@ Important: do not set `Build Path=packages/<service>` together with `Dockerfile=
 - `DATABASE_URL`
 - `REDIS_URL`
 
-### 7.4 Ports and health checks
+### 7.5 Ports and health checks
 
 The containers expose:
 
@@ -147,12 +178,12 @@ The containers expose:
 
 If only workers are needed (no public HTTP), keep them internal and skip domain routing.
 
-### 7.5 Scaling guidance
+### 7.6 Scaling guidance
 
 - Keep `bot-service` at 1 replica (it includes scheduler + bot polling logic).
 - Scale `amazon-scraper` and `ceneo-service` independently based on queue load.
 
-### 7.6 Deployment order
+### 7.7 Deployment order
 
 1. Deploy `postgres` and `redis`.
 2. Deploy `bot-service` (runs Drizzle migrations automatically on startup).
