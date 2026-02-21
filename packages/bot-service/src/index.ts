@@ -1,5 +1,7 @@
 import { createServer } from 'node:http';
+import { resolve } from 'node:path';
 import { Worker } from 'bullmq';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createBot } from './bot.js';
 import { createDb, parseRedisUrl, QUEUES } from '@liskobot/shared';
 import type { NotifyUserJob } from '@liskobot/shared';
@@ -10,6 +12,11 @@ import { registerCeneoResultHandler } from './handlers/ceneo-result.js';
 
 async function main() {
   const db = createDb(config.databaseUrl);
+
+  console.log('Running database migrations...');
+  await migrate(db, { migrationsFolder: resolve(import.meta.dirname, '../../shared/drizzle') });
+  console.log('Migrations complete');
+
   const connection = parseRedisUrl(config.redisUrl);
 
   const bot = createBot(config.telegramBotToken, db);

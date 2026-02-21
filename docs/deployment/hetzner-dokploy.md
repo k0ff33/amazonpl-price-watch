@@ -155,11 +155,10 @@ If only workers are needed (no public HTTP), keep them internal and skip domain 
 ### 7.6 Deployment order
 
 1. Deploy `postgres` and `redis`.
-2. Run DB migrations once (before long-running workers).
-3. Deploy `bot-service`.
-4. Deploy `amazon-scraper`.
-5. Deploy `ceneo-service`.
-6. Verify logs and `/health` checks.
+2. Deploy `bot-service` (runs Drizzle migrations automatically on startup).
+3. Deploy `amazon-scraper`.
+4. Deploy `ceneo-service`.
+5. Verify logs and `/health` checks.
 
 For persistent database storage and backup/restore workflow, see:
 

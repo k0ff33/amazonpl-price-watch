@@ -83,9 +83,12 @@ docker compose -f docker-compose.dev.yml up -d
 
 ### DB migration flow
 
+Migrations run automatically on `bot-service` startup (via `drizzle-orm/postgres-js/migrator`). No manual step needed for applying migrations.
+
+To generate a new migration after schema changes:
+
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricewatch pnpm db:generate
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pricewatch pnpm db:migrate
 ```
 
 ### Build shared first
