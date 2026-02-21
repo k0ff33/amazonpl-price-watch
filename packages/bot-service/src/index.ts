@@ -57,8 +57,14 @@ async function main() {
     ceneoResultWorker,
     notifyWorker,
   ]);
-  process.once('SIGTERM', shutdown);
-  process.once('SIGINT', shutdown);
+  let shuttingDown = false;
+  const handleSignal = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    shutdown();
+  };
+  process.once('SIGTERM', handleSignal);
+  process.once('SIGINT', handleSignal);
 
   await bot.start();
   console.log('Bot service started');

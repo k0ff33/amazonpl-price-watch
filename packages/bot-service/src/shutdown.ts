@@ -11,6 +11,11 @@ export function createShutdownHandler(
     } catch (err) {
       console.error('Error stopping bot:', err);
     }
-    await Promise.all(workers.map((w) => w.close()));
+    const results = await Promise.allSettled(workers.map((w) => w.close()));
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(`Error closing worker at index ${index}:`, result.reason);
+      }
+    });
   };
 }
