@@ -1,5 +1,5 @@
 import { ImpitHttpClient } from '@crawlee/impit-client';
-import { CheerioCrawler, ProxyConfiguration } from 'crawlee';
+import { CheerioCrawler, Configuration, MemoryStorage, ProxyConfiguration } from 'crawlee';
 import type { CheerioCrawlingContext } from 'crawlee';
 import type { ScrapeResult } from './crawler.js';
 import {
@@ -68,6 +68,9 @@ export async function scrapeAmazonWithImpit({
     ? new ProxyConfiguration({ proxyUrls: [proxyUrl] })
     : undefined;
 
+  // Each call gets its own isolated MemoryStorage so Crawlee's internal
+  // RequestQueue does not deduplicate the same URL across consecutive jobs.
+  const storageClient = new MemoryStorage({ persistStorage: false });
   const crawler = new CheerioCrawler({
     httpClient: new ImpitHttpClient({ browser: 'chrome' }),
     proxyConfiguration,
@@ -103,7 +106,7 @@ export async function scrapeAmazonWithImpit({
 
       results.set(asin, extractAmazonProductData($));
     },
-  });
+  }, new Configuration({ storageClient }));
 
   try {
     await crawler.run([
