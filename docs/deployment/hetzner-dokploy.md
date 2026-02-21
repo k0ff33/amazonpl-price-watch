@@ -62,3 +62,95 @@ Open `http://localhost:3000`.
 ```bash
 scripts/deploy/hetzner/check-security.sh <tailscale-hostname-or-ip> deploy <server-name>
 ```
+
+## 7. Deploy Services Independently In Dokploy (GitOps)
+
+This repository is a `pnpm` monorepo. Each app must build from repository root context.
+
+### 7.1 Create core services first
+
+In one Dokploy project, create:
+
+- PostgreSQL 16 service (name it `postgres`)
+- Redis 7 service (name it `redis`, enable password)
+
+Then define project/app environment values:
+
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `REDIS_PASSWORD`
+- `DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/pricewatch`
+- `REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379`
+
+Use the same database and redis URLs in all three app services.
+
+### 7.2 Create 3 separate GitOps apps
+
+Create these as separate Dokploy applications so they can scale independently:
+
+- `bot-service`
+- `amazon-scraper`
+- `ceneo-service`
+
+For each app, use:
+
+- Source: Git (GitHub)
+- Repository: `k0ff33/liskobot`
+- Branch: your deployment branch (for example `main`)
+- Build Type: `Dockerfile`
+- Build Path (root path): `/`
+- Docker Context Path: `.`
+- Auto Deploy: enabled
+
+Service-specific Dockerfile:
+
+- `bot-service` -> `packages/bot-service/Dockerfile`
+- `amazon-scraper` -> `packages/amazon-scraper/Dockerfile`
+- `ceneo-service` -> `packages/ceneo-service/Dockerfile`
+
+Important: do not set `Build Path=packages/<service>` together with `Dockerfile=packages/<service>/Dockerfile` or Dokploy will resolve invalid nested paths.
+
+### 7.3 Environment variables per app
+
+`bot-service`:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_ADMIN_CHAT_ID`
+- `AMAZON_ASSOCIATE_TAG`
+
+`amazon-scraper`:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+- `PROXY_URL` (optional)
+
+`ceneo-service`:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+
+### 7.4 Ports and health checks
+
+The containers expose:
+
+- `bot-service`: `3000` (`/health`)
+- `amazon-scraper`: `3001` (`/health`)
+- `ceneo-service`: `3002` (`/health`)
+
+If only workers are needed (no public HTTP), keep them internal and skip domain routing.
+
+### 7.5 Scaling guidance
+
+- Keep `bot-service` at 1 replica (it includes scheduler + bot polling logic).
+- Scale `amazon-scraper` and `ceneo-service` independently based on queue load.
+
+### 7.6 Deployment order
+
+1. Deploy `postgres` and `redis`.
+2. Run DB migrations once (before long-running workers).
+3. Deploy `bot-service`.
+4. Deploy `amazon-scraper`.
+5. Deploy `ceneo-service`.
+6. Verify logs and `/health` checks.

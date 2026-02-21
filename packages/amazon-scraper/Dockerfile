@@ -17,12 +17,12 @@ FROM node:24-bookworm-slim
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN npx playwright install --with-deps chromium
 WORKDIR /app
-COPY --from=builder --chown=node:node /app/packages/amazon-scraper/dist ./dist
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
-COPY --from=builder --chown=node:node /app/packages/shared/dist ./node_modules/@liskobot/shared/dist
-COPY --from=builder --chown=node:node /app/packages/shared/package.json ./node_modules/@liskobot/shared/package.json
+COPY --from=builder --chown=node:node /app/packages/shared ./packages/shared
+COPY --from=builder --chown=node:node /app/packages/amazon-scraper ./packages/amazon-scraper
 RUN chown -R node:node /ms-playwright
 
+WORKDIR /app/packages/amazon-scraper
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost:3001/health || exit 1
 USER node

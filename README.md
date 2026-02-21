@@ -130,6 +130,20 @@ Security defaults:
 
 Access panel through SSH tunnel (`ssh -L 3000:localhost:3000 deploy@<tailscale-hostname-or-ip>`).
 
+### Dokploy GitOps For Monorepo Services
+
+Deploy each service as a separate Dokploy app (for independent scaling) with these build settings:
+
+- Build Type: `Dockerfile`
+- Build Path: repository root (`/`)
+- Docker Context Path: `.`
+- Docker File (per app):
+  - `packages/bot-service/Dockerfile`
+  - `packages/amazon-scraper/Dockerfile`
+  - `packages/ceneo-service/Dockerfile`
+
+Do not combine `Build Path=packages/<service>` with `Docker File=packages/<service>/Dockerfile` in this repo. Dockerfiles copy workspace root files (for pnpm workspaces), so they must build from monorepo root context.
+
 ## Documentation
 
 *   [Architecture](docs/architecture.md)
