@@ -1,23 +1,30 @@
-import { Context } from 'grammy';
+import { Context, InlineKeyboard } from 'grammy';
 import { and, eq, sql } from 'drizzle-orm';
 import { Db, products, watches } from '@liskobot/shared';
 import { extractAsinFromMessage } from '../asin.js';
+import { setLastTrackedAsin } from '../interaction-state.js';
 
 const MAX_ACTIVE_WATCHES_PER_USER = 50;
 
 export function createTrackHandler(db: Db) {
   return async (ctx: Context) => {
-    const text = ctx.message?.text;
+    const commandArgs = (ctx.match as string | undefined)?.trim();
+    const text = commandArgs && commandArgs.length > 0 ? commandArgs : ctx.message?.text;
+
     if (!text) return;
 
     const asin = await extractAsinFromMessage(text);
-    if (!asin) return; // not an Amazon URL, ignore
+    if (!asin) {
+      if (commandArgs !== undefined) {
+        await ctx.reply('Usage: /track <Amazon.pl URL>');
+      }
+      return;
+    }
 
     const chatId = ctx.chat?.id;
     const ownerUserId = ctx.from?.id;
     if (!chatId || !ownerUserId) return;
 
-    // Ensure product row exists (title populated later by scraper).
     await db
       .insert(products)
       .values({
@@ -27,7 +34,6 @@ export function createTrackHandler(db: Db) {
       })
       .onConflictDoNothing({ target: products.asin });
 
-    // Per-user quota to cap abuse and scraping cost.
     const countResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(watches)
@@ -45,7 +51,6 @@ export function createTrackHandler(db: Db) {
       return;
     }
 
-    // Upsert watch to avoid races between duplicate requests.
     const insertedWatch = await db
       .insert(watches)
       .values({
@@ -63,15 +68,25 @@ export function createTrackHandler(db: Db) {
       return;
     }
 
-    // Update subscriber count only for newly-created watches.
     await db
       .update(products)
       .set({ subscriberCount: sql`COALESCE(${products.subscriberCount}, 0) + 1` })
       .where(eq(products.asin, asin));
 
+    const keyboard = new InlineKeyboard()
+      .text('Set target price', `set_target:${asin}`)
+      .row()
+      .text('Pause', `pause:${asin}`)
+      .text('Stop', `stop:${asin}`)
+      .row()
+      .url('Open on Amazon', `https://www.amazon.pl/dp/${asin}`);
+
+    setLastTrackedAsin(chatId, ownerUserId, asin);
+
     await ctx.reply(
       `Tracking ${asin}! I'll notify you when the price drops.\n` +
-        `Use /set ${asin} <price> to set a target price.`,
+        'Tap “Set target price” to set your target without pasting the ASIN.',
+      { reply_markup: keyboard },
     );
   };
 }

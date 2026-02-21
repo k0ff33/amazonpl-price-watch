@@ -22,6 +22,16 @@ async function main() {
 
   const bot = createBot(config.telegramBotToken, db);
 
+  await bot.api.setMyCommands([
+    { command: 'help', description: 'Show available commands' },
+    { command: 'track', description: 'Track product URL' },
+    { command: 'list', description: 'List your watches' },
+    { command: 'set', description: 'Set target price' },
+    { command: 'pause', description: 'Pause a watch' },
+    { command: 'stop', description: 'Stop tracking a watch' },
+  ]);
+
+
   // Register BullMQ workers
   const { worker: schedulerWorker } = registerScheduler(connection, db);
   const { worker: priceChangedWorker } = registerPriceChangedHandler(connection, db, config.adminChatId, config.amazonAssociateTag);
