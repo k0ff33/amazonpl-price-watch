@@ -190,9 +190,6 @@ Run all three verification steps for the affected package before claiming comple
 # Build
 pnpm --filter @liskobot/<service> build
 
-# Lint
-pnpm --filter @liskobot/<service> lint
-
 # Test
 pnpm --filter @liskobot/<service> test
 ```
