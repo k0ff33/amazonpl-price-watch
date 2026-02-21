@@ -41,6 +41,8 @@ The bot supports both command-based and guided interactions:
 
 You can also paste an Amazon.pl URL directly. After tracking starts, the bot now sends inline action buttons (set target price, pause, stop, open on Amazon) so users do not need to copy-paste ASIN for common actions.
 
+It also supports lightweight natural shortcuts for the most recently tracked product: `set 199`, `target 199`, `ustaw 199`, `pause`, and `stop`.
+
 ## Local Development
 
 ### Prerequisites

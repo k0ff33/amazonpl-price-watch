@@ -13,6 +13,7 @@ export function createHelpHandler() {
         '/help - show this help message',
         '',
         'Tip: you can also just paste an Amazon.pl URL directly.',
+        'After tracking, shortcuts work too: set 199, pause, stop.',
       ].join('\n'),
     );
   };

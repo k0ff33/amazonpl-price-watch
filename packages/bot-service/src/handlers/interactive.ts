@@ -1,7 +1,22 @@
 import { Context } from 'grammy';
 import { Db } from '@liskobot/shared';
-import { clearPendingAction, getPendingTargetPrice, setPendingTargetPrice } from '../interaction-state.js';
+import {
+  clearPendingAction,
+  getLastTrackedAsin,
+  getPendingTargetPrice,
+  setLastTrackedAsin,
+  setPendingTargetPrice,
+} from '../interaction-state.js';
 import { pauseWatch, setTargetPriceForWatch, stopWatch } from './chat-actions.js';
+
+const SET_TARGET_RE = /^(?:set|target|ustaw)\s+(\d+(?:[.,]\d{1,2})?)$/i;
+const PAUSE_RE = /^(?:pause|pauza|wstrzymaj)$/i;
+const STOP_RE = /^(?:stop|usu[nń])$/i;
+
+function parsePrice(text: string): number | null {
+  const price = parseFloat(text.replace(',', '.'));
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
 
 export function createCallbackQueryHandler(db: Db) {
   return async (ctx: Context) => {
@@ -30,6 +45,7 @@ export function createCallbackQueryHandler(db: Db) {
 
     if (action === 'pause') {
       const paused = await pauseWatch(db, chatId, ownerUserId, asin);
+      if (paused) setLastTrackedAsin(chatId, ownerUserId, asin);
       await ctx.answerCallbackQuery({ text: paused ? 'Paused' : 'Watch not found' });
       await ctx.reply(paused ? `Paused tracking for ${asin}.` : `No watch found for ${asin}.`);
       return;
@@ -38,6 +54,7 @@ export function createCallbackQueryHandler(db: Db) {
     if (action === 'stop') {
       const stopped = await stopWatch(db, chatId, ownerUserId, asin);
       clearPendingAction(chatId, ownerUserId);
+      if (stopped) setLastTrackedAsin(chatId, ownerUserId, asin);
       await ctx.answerCallbackQuery({ text: stopped ? 'Stopped' : 'Watch not found' });
       await ctx.reply(stopped ? `Stopped tracking ${asin}.` : `No watch found for ${asin}.`);
       return;
@@ -57,8 +74,13 @@ export function createPendingPriceHandler(db: Db) {
     const pendingAsin = getPendingTargetPrice(chatId, ownerUserId);
     if (!pendingAsin) return false;
 
-    const price = parseFloat(text.replace(',', '.'));
-    if (isNaN(price) || price <= 0) {
+    if (text.startsWith('/') || text.includes('amazon.pl/') || text.includes('amzn.eu/')) {
+      clearPendingAction(chatId, ownerUserId);
+      return false;
+    }
+
+    const price = parsePrice(text);
+    if (!price) {
       await ctx.reply(`Please send a valid price for ${pendingAsin}, e.g. 199.99`);
       return true;
     }
@@ -71,7 +93,52 @@ export function createPendingPriceHandler(db: Db) {
     }
 
     clearPendingAction(chatId, ownerUserId);
+    setLastTrackedAsin(chatId, ownerUserId, pendingAsin);
     await ctx.reply(`Target price for ${pendingAsin} set to ${price.toFixed(2)} PLN.`);
     return true;
+  };
+}
+
+export function createNaturalInputHandler(db: Db) {
+  return async (ctx: Context) => {
+    const chatId = ctx.chat?.id;
+    const ownerUserId = ctx.from?.id;
+    const text = ctx.message?.text?.trim();
+    if (!chatId || !ownerUserId || !text) return false;
+
+    const asin = getLastTrackedAsin(chatId, ownerUserId);
+    if (!asin) return false;
+
+    const setMatch = text.match(SET_TARGET_RE);
+    if (setMatch) {
+      const price = parsePrice(setMatch[1]);
+      if (!price) {
+        await ctx.reply(`Please send a valid price for ${asin}, e.g. 199.99`);
+        return true;
+      }
+
+      const updated = await setTargetPriceForWatch(db, chatId, ownerUserId, asin, price);
+      if (!updated) {
+        await ctx.reply(`No watch found for ${asin}. Send the Amazon URL first.`);
+        return true;
+      }
+
+      await ctx.reply(`Target price for ${asin} set to ${price.toFixed(2)} PLN.`);
+      return true;
+    }
+
+    if (PAUSE_RE.test(text)) {
+      const paused = await pauseWatch(db, chatId, ownerUserId, asin);
+      await ctx.reply(paused ? `Paused tracking for ${asin}.` : `No watch found for ${asin}.`);
+      return true;
+    }
+
+    if (STOP_RE.test(text)) {
+      const stopped = await stopWatch(db, chatId, ownerUserId, asin);
+      await ctx.reply(stopped ? `Stopped tracking ${asin}.` : `No watch found for ${asin}.`);
+      return true;
+    }
+
+    return false;
   };
 }

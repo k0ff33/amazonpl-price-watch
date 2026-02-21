@@ -2,6 +2,7 @@ import { Context, InlineKeyboard } from 'grammy';
 import { and, eq, sql } from 'drizzle-orm';
 import { Db, products, watches } from '@liskobot/shared';
 import { extractAsinFromMessage } from '../asin.js';
+import { setLastTrackedAsin } from '../interaction-state.js';
 
 const MAX_ACTIVE_WATCHES_PER_USER = 50;
 
@@ -79,6 +80,8 @@ export function createTrackHandler(db: Db) {
       .text('Stop', `stop:${asin}`)
       .row()
       .url('Open on Amazon', `https://www.amazon.pl/dp/${asin}`);
+
+    setLastTrackedAsin(chatId, ownerUserId, asin);
 
     await ctx.reply(
       `Tracking ${asin}! I'll notify you when the price drops.\n` +
