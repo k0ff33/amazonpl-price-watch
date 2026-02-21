@@ -29,7 +29,7 @@ async function main() {
           : undefined,
         playwrightProxy: config.proxyUrl
           ? () => scrapeAmazonWithPlaywright({ asin, url, proxyUrl: config.proxyUrl })
-          : undefined,
+          : () => scrapeAmazonWithPlaywright({ asin, url }),
       });
 
       if (usedProxyFallback) {

@@ -13,17 +13,15 @@ COPY packages/shared/ packages/shared/
 COPY packages/amazon-scraper/ packages/amazon-scraper/
 RUN pnpm --filter @liskobot/shared build && pnpm --filter @liskobot/amazon-scraper build
 
-FROM node:24-bookworm-slim
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN npx playwright install --with-deps chromium
+FROM mcr.microsoft.com/playwright:v1.58.0-noble
+RUN chown -R ubuntu:ubuntu /ms-playwright
 WORKDIR /app
-COPY --from=builder --chown=node:node /app/node_modules ./node_modules
-COPY --from=builder --chown=node:node /app/packages/shared ./packages/shared
-COPY --from=builder --chown=node:node /app/packages/amazon-scraper ./packages/amazon-scraper
-RUN chown -R node:node /ms-playwright
+COPY --from=builder --chown=ubuntu:ubuntu /app/node_modules ./node_modules
+COPY --from=builder --chown=ubuntu:ubuntu /app/packages/shared ./packages/shared
+COPY --from=builder --chown=ubuntu:ubuntu /app/packages/amazon-scraper ./packages/amazon-scraper
 
 WORKDIR /app/packages/amazon-scraper
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost:3001/health || exit 1
-USER node
+USER ubuntu
 CMD ["node", "dist/index.js"]
