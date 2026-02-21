@@ -15,6 +15,13 @@
       "when": 1771360623323,
       "tag": "0001_lame_miek",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771672840471,
+      "tag": "0002_hesitant_harpoon",
+      "breakpoints": true
     }
   ]
 }

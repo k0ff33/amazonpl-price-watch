@@ -12,7 +12,9 @@ export const products = pgTable('products', {
   lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
   nextCheckAt: timestamp('next_check_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  index('idx_products_next_check').on(table.nextCheckAt),
+]);
 
 export const watches = pgTable('watches', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -26,6 +28,8 @@ export const watches = pgTable('watches', {
 }, (table) => [
   uniqueIndex('ux_watches_chat_owner_asin').on(table.telegramChatId, table.ownerUserId, table.asin),
   index('idx_watches_owner_active').on(table.ownerUserId, table.isActive),
+  index('idx_watches_asin_active').on(table.asin, table.isActive),
+  index('idx_watches_chat_owner').on(table.telegramChatId, table.ownerUserId),
 ]);
 
 export const priceHistory = pgTable('price_history', {
